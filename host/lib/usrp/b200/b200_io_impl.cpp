@@ -583,7 +583,6 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         my_streamer->set_enable_trailer(false); // TODO not implemented trailer support
                                                 // yet
         perif.tx_streamer = my_streamer; // store weak pointer
-
         // sets all tick and samp rates on this streamer
         this->update_tick_rate(this->get_tick_rate());
         _tree

@@ -419,7 +419,6 @@ udp_zero_copy::sptr udp_zero_copy::make(const std::string& addr,
 {
     // Initialize xport_params
     zero_copy_xport_params xport_params = default_buff_args;
-
     xport_params.recv_frame_size =
         size_t(hints.cast<double>("recv_frame_size", default_buff_args.recv_frame_size));
     xport_params.num_recv_frames =
@@ -499,7 +498,6 @@ udp_zero_copy::sptr udp_zero_copy::make(const std::string& addr,
                     .str());
         }
     }
-
     udp_zero_copy_wsa_impl::sptr udp_trans(
         new udp_zero_copy_wsa_impl(addr, port, xport_params, hints));
 

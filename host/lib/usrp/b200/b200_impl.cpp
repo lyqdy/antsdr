@@ -427,14 +427,15 @@ b200_impl::b200_impl(
         default_buff_args.recv_frame_size = 408;
         default_buff_args.num_send_frames = 1;
         default_buff_args.num_recv_frames = 1;
-        default_buff_args.send_buff_size = 1e5;
-        default_buff_args.recv_buff_size = 1e5;
+        default_buff_args.send_buff_size = 1e4;
+        default_buff_args.recv_buff_size = 1e4;
 
         /* make the transprt object with the hintS
          * create the transport port (_ctrl_transport)
          * */
         device_addr_t filtered_hints;
         udp_zero_copy::buff_params ignored_params;
+
         _ctrl_transport = udp_zero_copy::make(
             addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_CTRL_PORT), default_buff_args, ignored_params,
             filtered_hints);
