@@ -423,8 +423,8 @@ b200_impl::b200_impl(
         }
 
         zero_copy_xport_params default_buff_args;
-        default_buff_args.send_frame_size = 408;
-        default_buff_args.recv_frame_size = 408;
+        default_buff_args.send_frame_size = transport::udp_simple::mtu;
+        default_buff_args.recv_frame_size = transport::udp_simple::mtu;
         default_buff_args.num_send_frames = 1;
         default_buff_args.num_recv_frames = 1;
         default_buff_args.send_buff_size = 1e4;
