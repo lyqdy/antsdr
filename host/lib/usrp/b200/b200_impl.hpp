@@ -90,6 +90,7 @@ typedef struct{
             uint32_t len;
         } echo_args;
     } data;
+    uint32_t len;
 } microphase_e310_ctrl_data_t;
 
 
