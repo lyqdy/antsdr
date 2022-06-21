@@ -17,8 +17,10 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/shared_ptr.hpp>
 
-enum b200_product_t { B200_, B210, B200MINI, B205MINI };
+/* microphase */
+enum microphase_produce_t {E310 ,U220 ,ETTUS};
 
+enum b200_product_t { B200_, B210, B200MINI, B205MINI };
 // These are actual USB PIDs (not Ettus Product IDs)
 const static uint16_t B200_VENDOR_ID      = 0x2500;
 const static uint16_t B200_VENDOR_NI_ID   = 0x3923;

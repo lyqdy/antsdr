@@ -376,7 +376,7 @@ b200_impl::b200_impl(
     _tree                 = property_tree::make();
     _type                 = device::USRP;
     const fs_path mb_path = "/mboards/0";
-
+    _product_mp = ETTUS;
 
     /* Microphase if type = E310
      * then run udp interface not usb interface
@@ -393,6 +393,7 @@ b200_impl::b200_impl(
          * */
         // try to match the given device address with something on the USB bus
        _product = B205MINI;
+        _product_mp = E310;
        const std::string addr = device_addr["addr"];
         UHD_LOGGER_INFO("B200") << "Detected Device: " << "Detected Device: ANTSDR";
 
@@ -427,8 +428,8 @@ b200_impl::b200_impl(
         default_buff_args.recv_frame_size = transport::udp_simple::mtu;
         default_buff_args.num_send_frames = 1;
         default_buff_args.num_recv_frames = 1;
-        default_buff_args.send_buff_size = 1e4;
-        default_buff_args.recv_buff_size = 1e4;
+        default_buff_args.send_buff_size = 1e5;
+        default_buff_args.recv_buff_size = 1e5;
 
         /* make the transprt object with the hintS
          * create the transport port (_ctrl_transport)

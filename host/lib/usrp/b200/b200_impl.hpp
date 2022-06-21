@@ -186,6 +186,8 @@ public:
     static uhd::usrp::mboard_eeprom_t get_mb_eeprom(uhd::i2c_iface::sptr);
 
 private:
+    /* microphase product */
+    microphase_produce_t _product_mp;
     b200_product_t _product;
     size_t _revision;
     bool _gpsdo_capable;
@@ -394,6 +396,8 @@ private:
         boost::shared_ptr<async_md_type> async_queue;
         boost::shared_ptr<async_md_type> old_async_queue;
     };
+
+
 
     size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
     typedef boost::function<double(void)> tick_rate_retriever_t;
