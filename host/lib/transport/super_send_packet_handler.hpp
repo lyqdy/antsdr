@@ -412,8 +412,6 @@ private:
         }
 
         _next_packet_seq++; // increment sequence after commits
-        /* microphase */
-        usleep(100);
         return nsamps_per_buff;
     }
 

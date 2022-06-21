@@ -374,6 +374,7 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
                 packet_buff,
                 _tick_rate,
                 i);
+
             data->async_md->push_with_pop_on_full(metadata);
             standard_async_msg_prints(metadata);
             break;
@@ -527,8 +528,15 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
     }
     check_streamer_args(args, this->get_tick_rate(), "TX");
 
+    /* microphase */
+    boost::shared_ptr<async_md_type> async_md(
+            new async_md_type(1000));
+
     boost::shared_ptr<sph::send_packet_streamer> my_streamer;
     for (size_t stream_i = 0; stream_i < args.channels.size(); stream_i++) {
+        /* microphase */
+        const size_t chan = args.channels[stream_i];
+
         const size_t radio_index =
             _tree->access<std::vector<size_t>>("/mboards/0/tx_chan_dsp_mapping")
                 .get()
@@ -551,6 +559,7 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
             - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
             - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
             ;
+
         static const size_t bpp = _data_transport->get_send_frame_size() - hdr_size;
         const size_t spp        = bpp / convert::get_bytes_per_item(args.otw_format);
 
@@ -574,8 +583,40 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         perif.deframer->setup(args);
         perif.duc->setup(args);
 
-        my_streamer->set_xport_chan_get_buff(
-            stream_i, boost::bind(&zero_copy_if::get_send_buff, _data_transport, _1));
+        /* microphase */
+        // flow control setup
+        size_t fc_window = _get_tx_flow_control_window(bpp,1e4);
+        // In packets
+        const size_t fc_handle_window = (fc_window / 10);
+
+        perif.deframer->configure_flow_control(0/* cycs off */,fc_handle_window);
+        boost::shared_ptr<tx_fc_cache_t> fc_cache(new tx_fc_cache_t());
+        fc_cache->stream_channel = stream_i;
+        fc_cache->device_channel = chan;
+        fc_cache->async_queue = _async_task_data->async_md;
+        fc_cache->old_async_queue = _async_task_data->async_md;
+        std::cout << "fc_cache->stream_channel:"<<fc_cache->stream_channel<<std::endl;
+        std::cout << "fc_cache->device_channel:"<<fc_cache->device_channel<<std::endl;
+        std::cout << "fc_cache->async_queue:"<<fc_cache->async_queue.get()<<std::endl;
+        std::cout << "fc_cache->old_async_queue:"<<fc_cache->old_async_queue.get()<<std::endl;
+
+        tick_rate_retriever_t get_tick_rate_fn =
+                boost::bind(&b200_impl::get_tick_rate,this);
+        task::sptr task =
+                task::make(boost::bind(&b200_impl::_handle_tx_async_msgs,
+                                       fc_cache,
+                                       _data_transport,
+                                       get_tick_rate_fn));
+
+        my_streamer->set_xport_chan_get_buff(stream_i,
+                                             boost::bind(&b200_impl::_get_tx_buff_with_flowctrl,
+                                                         task,
+                                                         fc_cache,
+                                                         _data_transport,
+                                                         fc_window,
+                                                         _1));
+//        my_streamer->set_xport_chan_get_buff(
+//            stream_i, boost::bind(&zero_copy_if::get_send_buff, _data_transport, _1));
         my_streamer->set_async_receiver(boost::bind(
             &async_md_type::pop_with_timed_wait, _async_task_data->async_md, _1, _2));
         my_streamer->set_xport_chan_sid(
@@ -593,4 +634,89 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
     this->update_enables();
 
     return my_streamer;
+}
+
+/* Microphase for e310 */
+size_t b200_impl::_get_tx_flow_control_window(size_t payload_size, size_t hw_buff_size)
+{
+    size_t window_in_pkts = hw_buff_size / payload_size;
+    if (window_in_pkts == 0) {
+        throw uhd::value_error("send_buff_size must be larger than the send_frame_size.");
+    }
+    return window_in_pkts;
+}
+
+void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                      uhd::transport::zero_copy_if::sptr xport,
+                                      tick_rate_retriever_t get_tick_rate)
+{
+    managed_recv_buffer::sptr buff = xport->get_recv_buff();
+    if(not buff)
+        return;
+      vrt::if_packet_info_t if_packet_info;
+      if_packet_info.num_packet_words32 = buff->size() / sizeof(uint32_t);
+      const uint32_t* packet_buff       = buff->cast<const uint32_t*>();
+
+      // unpacking can fail
+      uint32_t (*endian_conv)(uint32_t) = uhd::wtohx;
+    try {
+        b200_if_hdr_unpack_le(packet_buff, if_packet_info);
+    } catch (const std::exception& ex) {
+        UHD_LOGGER_ERROR("B200") << "Error parsing ctrl packet: " << ex.what();
+    }
+
+    for(int i=0;i<if_packet_info.num_packet_words32;i++){
+        std::cout << "packet_buff[" <<i<<"]"<<":"<< std::hex << packet_buff[i]<< "  "<<std::endl;
+    }
+      // fill in the async metadata
+      async_metadata_t metadata;
+      load_metadata_from_buff(endian_conv,
+                              metadata,
+                              if_packet_info,
+                              packet_buff,
+                              get_tick_rate(),
+                              fc_cache->stream_channel);
+
+      // The FC response and the burst ack are two indicators that the radio
+      // consumed packets. Use them to update the FC metadata
+      std::cout << "metadata.event_code:" << metadata.event_code <<std::endl;
+      if (metadata.event_code == 0
+          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
+          const size_t seq = metadata.user_payload[0];
+          fc_cache->seq_queue.push_with_pop_on_full(seq);
+      }
+
+      // FC responses don't propagate up to the user so filter them here
+      if (metadata.event_code != 0) {
+          fc_cache->async_queue->push_with_pop_on_full(metadata);
+          metadata.channel = fc_cache->device_channel;
+          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
+          standard_async_msg_prints(metadata);
+      }
+
+}
+
+uhd::transport::managed_send_buffer::sptr b200_impl::_get_tx_buff_with_flowctrl(
+        uhd::task::sptr /*holds ref*/,
+        boost::shared_ptr<b200_impl::tx_fc_cache_t> fc_cache,
+        uhd::transport::zero_copy_if::sptr xport,
+        size_t fc_pkt_window,
+        const double timeout)
+{
+    while (true) {
+        const size_t delta = (fc_cache->last_seq_out & 0xFFF)
+                             - (fc_cache->last_seq_ack & 0xFFF);
+        if ((delta & 0xFFF) <= fc_pkt_window)
+            break;
+
+        const bool ok =
+                fc_cache->seq_queue.pop_with_timed_wait(fc_cache->last_seq_ack, timeout);
+        if (not ok)
+            return uhd::transport::managed_send_buffer::sptr(); // timeout waiting for flow control
+    }
+
+    managed_send_buffer::sptr buff = xport->get_send_buff(timeout);
+    if (buff)
+        fc_cache->last_seq_out++; // update seq, this will actually be a send
+    return buff;
 }

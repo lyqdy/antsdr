@@ -93,7 +93,6 @@ typedef struct{
     uint32_t len;
 } microphase_e310_ctrl_data_t;
 
-
 static const uint8_t B200_FW_COMPAT_NUM_MAJOR = 8;
 static const uint8_t B200_FW_COMPAT_NUM_MINOR = 0;
 static const uint16_t B200_FPGA_COMPAT_NUM    = 16;
@@ -375,6 +374,38 @@ private:
     //! Coercer, attached to the "rate/value" property on the tx dsps.
     double coerce_tx_samp_rate(tx_dsp_core_3000::sptr, size_t, const double);
     void update_tx_samp_rate(const size_t, const double);
+
+    /* microphase for e310 */
+    struct tx_fc_cache_t
+    {
+        tx_fc_cache_t()
+                : stream_channel(0)
+                , device_channel(0)
+                , last_seq_out(0)
+                , last_seq_ack(0)
+                , seq_queue(1)
+        {
+        }
+        size_t stream_channel;
+        size_t device_channel;
+        size_t last_seq_out;
+        size_t last_seq_ack;
+        uhd::transport::bounded_buffer<size_t> seq_queue;
+        boost::shared_ptr<async_md_type> async_queue;
+        boost::shared_ptr<async_md_type> old_async_queue;
+    };
+
+    size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
+    typedef boost::function<double(void)> tick_rate_retriever_t;
+    static void _handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                                    uhd::transport::zero_copy_if::sptr xport,
+                                                    tick_rate_retriever_t get_tick_rate);
+    static uhd::transport::managed_send_buffer::sptr _get_tx_buff_with_flowctrl(
+            uhd::task::sptr /*holds ref*/,
+            boost::shared_ptr<tx_fc_cache_t> fc_cache,
+            uhd::transport::zero_copy_if::sptr xport,
+            size_t fc_pkt_window,
+            const double timeout);
 };
 
 #endif /* INCLUDED_B200_IMPL_HPP */

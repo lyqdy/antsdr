@@ -1898,3 +1898,4 @@ sensor_value_t b200_impl::get_fe_pll_locked(const bool is_tx)
     const bool locked = is_tx ? ((st & 0x1) > 0) : ((st & 0x2) > 0);
     return sensor_value_t("LO", locked, "locked", "unlocked");
 }
+
