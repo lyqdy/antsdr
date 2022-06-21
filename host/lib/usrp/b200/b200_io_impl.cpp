@@ -595,10 +595,11 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         fc_cache->device_channel = chan;
         fc_cache->async_queue = _async_task_data->async_md;
         fc_cache->old_async_queue = _async_task_data->async_md;
-        std::cout << "fc_cache->stream_channel:"<<fc_cache->stream_channel<<std::endl;
-        std::cout << "fc_cache->device_channel:"<<fc_cache->device_channel<<std::endl;
-        std::cout << "fc_cache->async_queue:"<<fc_cache->async_queue.get()<<std::endl;
-        std::cout << "fc_cache->old_async_queue:"<<fc_cache->old_async_queue.get()<<std::endl;
+        /* microphase print */
+//        std::cout << "fc_cache->stream_channel:"<<fc_cache->stream_channel<<std::endl;
+//        std::cout << "fc_cache->device_channel:"<<fc_cache->device_channel<<std::endl;
+//        std::cout << "fc_cache->async_queue:"<<fc_cache->async_queue.get()<<std::endl;
+//        std::cout << "fc_cache->old_async_queue:"<<fc_cache->old_async_queue.get()<<std::endl;
 
         tick_rate_retriever_t get_tick_rate_fn =
                 boost::bind(&b200_impl::get_tick_rate,this);
@@ -665,9 +666,12 @@ void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
         UHD_LOGGER_ERROR("B200") << "Error parsing ctrl packet: " << ex.what();
     }
 
-    for(int i=0;i<if_packet_info.num_packet_words32;i++){
-        std::cout << "packet_buff[" <<i<<"]"<<":"<< std::hex << packet_buff[i]<< "  "<<std::endl;
-    }
+
+    /* microphase print */
+//    std::cout << "if_packet_info.num_header_words32:"<< std::hex << if_packet_info.num_header_words32<<std::endl;
+//    for(size_t i=0;i<if_packet_info.num_packet_words32;i++){
+//        std::cout << "packet_buff[" <<i<<"]"<<":"<< std::hex << packet_buff[i]<< "  "<<std::endl;
+//    }
       // fill in the async metadata
       async_metadata_t metadata;
       load_metadata_from_buff(endian_conv,
@@ -679,20 +683,22 @@ void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
 
       // The FC response and the burst ack are two indicators that the radio
       // consumed packets. Use them to update the FC metadata
-      std::cout << "metadata.event_code:" << metadata.event_code <<std::endl;
-      if (metadata.event_code == 0
-          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
-          const size_t seq = metadata.user_payload[0];
-          fc_cache->seq_queue.push_with_pop_on_full(seq);
-      }
-
-      // FC responses don't propagate up to the user so filter them here
-      if (metadata.event_code != 0) {
-          fc_cache->async_queue->push_with_pop_on_full(metadata);
-          metadata.channel = fc_cache->device_channel;
-          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
-          standard_async_msg_prints(metadata);
-      }
+     // std::cout << "metadata.event_code:" << metadata.event_code <<std::endl;
+    const size_t seq = metadata.user_payload[0];
+    fc_cache->seq_queue.push_with_pop_on_full(seq);
+//      if (metadata.event_code == 0
+//          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
+//          const size_t seq = metadata.user_payload[0];
+//          fc_cache->seq_queue.push_with_pop_on_full(seq);
+//      }
+//
+//      // FC responses don't propagate up to the user so filter them here
+//      if (metadata.event_code != 0) {
+//          fc_cache->async_queue->push_with_pop_on_full(metadata);
+//          metadata.channel = fc_cache->device_channel;
+//          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
+//          standard_async_msg_prints(metadata);
+//      }
 
 }
 

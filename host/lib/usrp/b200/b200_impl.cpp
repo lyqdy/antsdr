@@ -302,7 +302,7 @@ static device_addrs_t b200_find(const device_addr_t& hint)
             } catch (const uhd::exception&) {
                 continue;
             } // ignore claimed
-            std::cout<<"in while"<<std::endl;
+
             b200_iface::sptr iface          = b200_iface::make(control);
             const mboard_eeprom_t mb_eeprom = b200_impl::get_mb_eeprom(iface);
 

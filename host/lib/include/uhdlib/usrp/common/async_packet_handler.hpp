@@ -34,6 +34,9 @@ void load_metadata_from_buff(const to_host_type& to_host,
     } else {
         metadata.time_spec = time_spec_t::from_ticks(if_packet_info.tsf, tick_rate);
     }
+    /* microphase print */
+//    std::cout <<"payload[0]:"<<payload[0]<<std::endl;
+//    std::cout <<"to_host(payload[0]):"<<to_host(payload[0])<<std::endl;
     metadata.event_code = async_metadata_t::event_code_t(to_host(payload[0]) & 0xff);
 
     // load user payload
