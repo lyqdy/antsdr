@@ -20,6 +20,7 @@ static uint16_t glI2cPageSize = 0x40;   /* I2C Page size to be used for transfer
 /* This application uses EEPROM as the slave I2C device. The I2C EEPROM
  * part number used is 24LC256. The capacity of the EEPROM is 256K bits */
 //#define CY_FX_USBI2C_I2C_MAX_CAPACITY   (32 * 1024) /* Capacity in bytes */
+
 #define CY_FX_USBI2C_I2C_MAX_CAPACITY   (128 * 1024) /* Capacity in bytes */
 
 /* The following constant is defined based on the page size that the I2C

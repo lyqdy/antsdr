@@ -559,8 +559,15 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
                 - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
                 - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
         ;
+        static size_t bpp;
+        if(_product_mp == E310){
+            bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
+        }
+        else{
+            bpp = _data_transport->get_send_frame_size() - hdr_size;
 
-        static const size_t bpp = _data_transport->get_send_frame_size() - hdr_size;
+        }
+
         const size_t spp        = bpp / convert::get_bytes_per_item(args.otw_format);
 
         // make the new streamer given the samples per packet
@@ -596,11 +603,6 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
             fc_cache->device_channel = chan;
             fc_cache->async_queue = _async_task_data->async_md;
             fc_cache->old_async_queue = _async_task_data->async_md;
-            /* microphase print */
-//        std::cout << "fc_cache->stream_channel:"<<fc_cache->stream_channel<<std::endl;
-//        std::cout << "fc_cache->device_channel:"<<fc_cache->device_channel<<std::endl;
-//        std::cout << "fc_cache->async_queue:"<<fc_cache->async_queue.get()<<std::endl;
-//        std::cout << "fc_cache->old_async_queue:"<<fc_cache->old_async_queue.get()<<std::endl;
 
             tick_rate_retriever_t get_tick_rate_fn =
                     boost::bind(&b200_impl::get_tick_rate, this);
@@ -686,11 +688,9 @@ void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
                             get_tick_rate(),
                             fc_cache->stream_channel);
 
-    // The FC response and the burst ack are two indicators that the radio
-    // consumed packets. Use them to update the FC metadata
-    // std::cout << "metadata.event_code:" << metadata.event_code <<std::endl;
     const size_t seq = metadata.user_payload[0];
     fc_cache->seq_queue.push_with_pop_on_full(seq);
+    standard_async_msg_prints(metadata);
 //      if (metadata.event_code == 0
 //          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
 //          const size_t seq = metadata.user_payload[0];
@@ -719,7 +719,6 @@ uhd::transport::managed_send_buffer::sptr b200_impl::_get_tx_buff_with_flowctrl(
                              - (fc_cache->last_seq_ack & 0xFFF);
         if ((delta & 0xFFF) <= fc_pkt_window)
             break;
-
         const bool ok =
                 fc_cache->seq_queue.pop_with_timed_wait(fc_cache->last_seq_ack, timeout);
         if (not ok)

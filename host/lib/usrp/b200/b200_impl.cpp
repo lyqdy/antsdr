@@ -569,6 +569,8 @@ b200_impl::b200_impl(
         _data_tx_transport = udp_zero_copy::make(
                 addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_TX_PORT), default_buff_args,
                 ignored_out_params, fi_hints);
+        while (_data_tx_transport->get_recv_buff(0.0)) {
+        }
         ////////////////////////////////////////////////////////////////////
         // create time and clock control objects
         ////////////////////////////////////////////////////////////////////
@@ -1893,7 +1895,11 @@ void b200_impl::update_enables(void)
     this->update_atrs();
 }
 
-/* mirophasse */
+/* mirophasse
+ * Thiunction is just send 8 bytes to
+ * let the fpga konw the which port
+ * it should send
+ * */
 void b200_impl::_program_dispatcher(uhd::transport::zero_copy_if &xport)
 {
     transport::managed_send_buffer::sptr buff = xport.get_send_buff();
@@ -1901,7 +1907,6 @@ void b200_impl::_program_dispatcher(uhd::transport::zero_copy_if &xport)
     buff->cast<uint32_t *>()[1]              =uhd::htonx<uint32_t>(MICROPHASE_DATA_RX_WAZZUP_BR0);
     buff->commit(8);
     buff.reset();
-
 }
 
 sensor_value_t b200_impl::get_ref_locked(void)

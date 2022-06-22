@@ -209,6 +209,7 @@ private:
     /* microphase */
     uhd::transport::zero_copy_if::sptr _data_tx_transport;
     uhd::transport::zero_copy_if::sptr _data_rx_transport;
+    uhd::usrp::recv_packet_demuxer_3000::sptr _demux_tx;
 
     // transports
     uhd::transport::zero_copy_if::sptr _data_transport;
@@ -406,7 +407,7 @@ private:
     //rx connect
     void _program_dispatcher(uhd::transport::zero_copy_if& xport);
 
-    size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
+    static size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
     typedef boost::function<double(void)> tick_rate_retriever_t;
     static void _handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
                                                     uhd::transport::zero_copy_if::sptr xport,
