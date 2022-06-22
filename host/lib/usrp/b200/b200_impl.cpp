@@ -556,13 +556,19 @@ b200_impl::b200_impl(
 
         udp_zero_copy::buff_params ignored_out_params;
         device_addr_t fi_hints;
-        _data_transport = udp_zero_copy::make(
-            addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_PORT), default_buff_args,
+        _data_rx_transport = udp_zero_copy::make(
+            addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_RX_PORT), default_buff_args,
             ignored_out_params, fi_hints);
-        while (_data_transport->get_recv_buff(0.0)) {
+        if(_data_rx_transport.get()){
+            _program_dispatcher(*_data_rx_transport);
+        }
+        while (_data_rx_transport->get_recv_buff(0.0)) {
         } // flush ctrl xport
-        _demux = recv_packet_demuxer_3000::make(_data_transport);
+        _demux = recv_packet_demuxer_3000::make(_data_rx_transport);
 
+        _data_tx_transport = udp_zero_copy::make(
+                addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_TX_PORT), default_buff_args,
+                ignored_out_params, fi_hints);
         ////////////////////////////////////////////////////////////////////
         // create time and clock control objects
         ////////////////////////////////////////////////////////////////////
@@ -1885,6 +1891,17 @@ void b200_impl::update_enables(void)
 
     // atrs change based on enables
     this->update_atrs();
+}
+
+/* mirophasse */
+void b200_impl::_program_dispatcher(uhd::transport::zero_copy_if &xport)
+{
+    transport::managed_send_buffer::sptr buff = xport.get_send_buff();
+    buff->cast<uint32_t *>()[0]             =0;
+    buff->cast<uint32_t *>()[1]              =uhd::htonx<uint32_t>(MICROPHASE_DATA_RX_WAZZUP_BR0);
+    buff->commit(8);
+    buff.reset();
+
 }
 
 sensor_value_t b200_impl::get_ref_locked(void)

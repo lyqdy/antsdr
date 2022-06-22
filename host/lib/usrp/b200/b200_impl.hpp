@@ -51,15 +51,17 @@
  * ports 49200 - 49210
  * */
 #define MICROPHASE_E310_UDP_CTRL_PORT 49200
-#define MICROPHASE_E310_UDP_DATA_PORT 49202
+#define MICROPHASE_E310_UDP_DATA_TX_PORT 49202
+#define MICROPHASE_E310_UDP_DATA_RX_PORT 49204
+
 #define MICROPHASE_E310_FW_COMPAT_NUM 2
 
 
 typedef enum{
-    MICROPHASE_CTRL_ID_HUH_WHAT = ' ',
-
     MICROPHASE_CTRL_ID_WAZZUP_BR0 = 'm',
     MICROPHASE_CTRL_ID_WAZZUP_DUDE = 'M',
+
+    MICROPHASE_DATA_RX_WAZZUP_BR0 = 'r',
 } microphase_e310_ctrl_id_e;
 
 typedef struct{
@@ -203,6 +205,10 @@ private:
     b200_local_spi_core::sptr _spi_iface;
     boost::shared_ptr<uhd::usrp::adf4001_ctrl> _adf4001_iface;
     uhd::gps_ctrl::sptr _gps;
+
+    /* microphase */
+    uhd::transport::zero_copy_if::sptr _data_tx_transport;
+    uhd::transport::zero_copy_if::sptr _data_rx_transport;
 
     // transports
     uhd::transport::zero_copy_if::sptr _data_transport;
@@ -397,7 +403,8 @@ private:
         boost::shared_ptr<async_md_type> old_async_queue;
     };
 
-
+    //rx connect
+    void _program_dispatcher(uhd::transport::zero_copy_if& xport);
 
     size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
     typedef boost::function<double(void)> tick_rate_retriever_t;

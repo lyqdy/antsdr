@@ -607,14 +607,14 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
             task::sptr task =
                     task::make(boost::bind(&b200_impl::_handle_tx_async_msgs,
                                            fc_cache,
-                                           _data_transport,
+                                           _data_tx_transport,
                                            get_tick_rate_fn));
 
             my_streamer->set_xport_chan_get_buff(stream_i,
                                                  boost::bind(&b200_impl::_get_tx_buff_with_flowctrl,
                                                              task,
                                                              fc_cache,
-                                                             _data_transport,
+                                                             _data_tx_transport,
                                                              fc_window,
                                                              _1));
         }
