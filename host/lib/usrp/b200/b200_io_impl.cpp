@@ -431,7 +431,14 @@ rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
                 - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
                 - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
         ;
-        const size_t bpp = _data_transport->get_recv_frame_size() - hdr_size;
+        static size_t bpp;
+        if(_product_mp == E310){
+            bpp = _data_rx_transport->get_recv_frame_size() - hdr_size;
+        }
+        else{
+            bpp =_data_transport->get_recv_frame_size() - hdr_size;
+        }
+
         const size_t bpi = convert::get_bytes_per_item(args.otw_format);
         size_t spp       = unsigned(args.args.cast<double>("spp", bpp / bpi));
         spp = std::min<size_t>(4092, spp); // FPGA FIFO maximum for framing at full rate
@@ -704,7 +711,6 @@ void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
 //          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
 //          standard_async_msg_prints(metadata);
 //      }
-
 }
 
 uhd::transport::managed_send_buffer::sptr b200_impl::_get_tx_buff_with_flowctrl(
