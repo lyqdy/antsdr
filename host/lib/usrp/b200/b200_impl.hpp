@@ -56,6 +56,8 @@
 
 #define MICROPHASE_E310_FW_COMPAT_NUM 2
 
+#define BUFF_SIZE 1e5
+
 
 typedef enum{
     MICROPHASE_CTRL_ID_WAZZUP_BR0 = 'm',

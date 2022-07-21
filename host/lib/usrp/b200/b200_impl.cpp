@@ -117,6 +117,42 @@ public:
     }
 };
 
+// antsdr
+class antsdr_ad9361_client_t : public ad9361_params
+{
+public:
+    ~antsdr_ad9361_client_t() {}
+    double get_band_edge(frequency_band_t band)
+    {
+        switch (band) {
+            case AD9361_RX_BAND0:
+                return 0; // Set these all to
+            case AD9361_RX_BAND1:
+                return 3e9; // zero, so RF port A
+            case AD9361_TX_BAND0:
+                return 3e9; // is used all the time
+            default:
+                return 0; // On both Rx and Tx
+        }
+    }
+    clocking_mode_t get_clocking_mode()
+    {
+        return clocking_mode_t::AD9361_XTAL_N_CLK_PATH;
+    }
+    digital_interface_mode_t get_digital_interface_mode()
+    {
+        return AD9361_DDR_FDD_LVCMOS;
+    }
+    digital_interface_delays_t get_digital_interface_timing()
+    {
+        digital_interface_delays_t delays;
+        delays.rx_clk_delay  = 0;
+        delays.rx_data_delay = 0xF;
+        delays.tx_clk_delay  = 0;
+        delays.tx_data_delay = 0xF;
+        return delays;
+    }
+};
 /***********************************************************************
  * Helpers
  **********************************************************************/
@@ -226,8 +262,8 @@ static device_addrs_t b200_find(const device_addr_t& hint)
             udp_simple::sptr ctrl_xport = udp_simple::make_connected(
                 mp_addr["addr"], BOOST_STRINGIZE(MICROPHASE_E310_UDP_CTRL_PORT)
             );
-            ctrl_xport->send(boost::asio::buffer(&ctrl_data_out, sizeof(ctrl_data_out)));
-            size_t len = ctrl_xport->recv(boost::asio::buffer(microphase_e310_ctrl_data_in_mem));
+            udp_transport->send(boost::asio::buffer(&ctrl_data_out, sizeof(ctrl_data_out)));
+            size_t len = udp_transport->recv(boost::asio::buffer(microphase_e310_ctrl_data_in_mem));
             if (len > offsetof(microphase_e310_ctrl_data_t, data)
                 and ntohl(ctrl_data_in->id) == MICROPHASE_CTRL_ID_WAZZUP_DUDE) {
                 mp_addr["serial"] = "19991030";
@@ -428,8 +464,8 @@ b200_impl::b200_impl(
         default_buff_args.recv_frame_size = transport::udp_simple::mtu;
         default_buff_args.num_send_frames = 1;
         default_buff_args.num_recv_frames = 1;
-        default_buff_args.send_buff_size = 1e5;
-        default_buff_args.recv_buff_size = 1e5;
+        default_buff_args.send_buff_size = BUFF_SIZE;
+        default_buff_args.recv_buff_size = BUFF_SIZE;
 
         /* make the transprt object with the hintS
          * create the transport port (_ctrl_transport)
@@ -586,7 +622,8 @@ b200_impl::b200_impl(
         reset_codec();
         ad9361_params::sptr client_settings;
         if (_product == B200MINI or _product == B205MINI) {
-            client_settings = boost::make_shared<b2xxmini_ad9361_client_t>();
+            UHD_LOGGER_INFO("B200") << "_Product B205MINI...";
+            client_settings = boost::make_shared<antsdr_ad9361_client_t>();
         } else {
             client_settings = boost::make_shared<b200_ad9361_client_t>();
         }
@@ -819,6 +856,8 @@ b200_impl::b200_impl(
 
     else
     {
+        _product = B200_;
+        _product_mp = U220;
         // try to match the given device address with something on the USB bus
         uint16_t vid       = B200_VENDOR_ID;
         uint16_t pid       = B200_PRODUCT_ID;
@@ -945,9 +984,9 @@ b200_impl::b200_impl(
         // does not have an FE2, so we don't swap FEs.
 
         // Swapped setup:
-        _fe1                 = 1;
-        _fe2                 = 0;
-        _gpio_state.swap_atr = 1;
+        _fe1                 = 0;
+        _fe2                 = 1;
+        _gpio_state.swap_atr = 0;
         // Unswapped setup:
         if (_product == B200MINI or _product == B205MINI
             or (_product == B200_ and _revision >= 5)) {
@@ -1133,7 +1172,7 @@ b200_impl::b200_impl(
         UHD_LOGGER_INFO("B200") << "Initialize CODEC control...";
         reset_codec();
         ad9361_params::sptr client_settings;
-        if (_product == B200MINI or _product == B205MINI) {
+        if (_product == B200MINI or _product == B205MINI or _product_mp == U220) {
             client_settings = boost::make_shared<b2xxmini_ad9361_client_t>();
         } else {
             client_settings = boost::make_shared<b200_ad9361_client_t>();
@@ -1751,7 +1790,36 @@ void b200_impl::sync_times()
 void b200_impl::update_bandsel(const std::string& which, double freq)
 {
     // B205 does not have bandsels
-    if (_product == B200MINI or _product == B205MINI) {
+    if ((_product == B200MINI or _product == B205MINI )and _product_mp == ETTUS) {
+        return;
+    }
+    if(_product == B205MINI and _product_mp == E310){
+        if (which[0] == 'R') {
+            if (freq < 3e9) {
+                _gpio_state.rx_bandsel_a = 0;
+                _gpio_state.rx_bandsel_b = 1;
+                _gpio_state.rx_bandsel_c = 0;
+            } else if ((freq >= 3e9) && (freq < 6e9)) {
+                _gpio_state.rx_bandsel_a = 1;
+                _gpio_state.rx_bandsel_b = 0;
+                _gpio_state.rx_bandsel_c = 0;
+            }else {
+                UHD_THROW_INVALID_CODE_PATH();
+            }
+        } else if (which[0] == 'T') {
+            if (freq < 3e9) {
+                _gpio_state.tx_bandsel_a = 0;
+                _gpio_state.tx_bandsel_b = 1;
+            } else if ((freq >= 3e9) && (freq <= 6e9)) {
+                _gpio_state.tx_bandsel_a = 1;
+                _gpio_state.tx_bandsel_b = 0;
+            } else {
+                UHD_THROW_INVALID_CODE_PATH();
+            }
+        } else {
+            UHD_THROW_INVALID_CODE_PATH();
+        }
+        update_gpio_state();
         return;
     }
 

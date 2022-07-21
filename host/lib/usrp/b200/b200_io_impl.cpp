@@ -502,8 +502,19 @@ void b200_impl::handle_overflow(const size_t radio_index)
         _demux->realloc_sid(B200_RX_DATA0_SID);
         _demux->realloc_sid(B200_RX_DATA1_SID);
         // flush actual transport
-        while (_data_transport->get_recv_buff(0.001)) {
+        if(_product_mp == E310)
+        {
+            while (_data_rx_transport->get_recv_buff(0.001)) {
+
+            }
         }
+        else
+        {
+            while (_data_transport->get_recv_buff(0.001)) {
+
+            }
+        }
+
         // restart streaming
         if (in_continuous_streaming_mode) {
             stream_cmd_t stream_cmd(stream_cmd_t::STREAM_MODE_START_CONTINUOUS);
@@ -572,7 +583,6 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         }
         else{
             bpp = _data_transport->get_send_frame_size() - hdr_size;
-
         }
 
         const size_t spp        = bpp / convert::get_bytes_per_item(args.otw_format);
@@ -600,11 +610,11 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         if(_product_mp == E310) {
             /* microphase */
             // flow control setup
-            size_t fc_window = _get_tx_flow_control_window(bpp, 1e5);
+            size_t fc_window = _get_tx_flow_control_window(bpp, BUFF_SIZE);
             // In packets
             const size_t fc_handle_window = (fc_window / 10);
 
-            perif.deframer->configure_flow_control(0/* cycs off */, fc_handle_window);
+            perif.deframer->configure_flow_control(0/* cycs off */, 30);
             boost::shared_ptr<tx_fc_cache_t> fc_cache(new tx_fc_cache_t());
             fc_cache->stream_channel = stream_i;
             fc_cache->device_channel = chan;
