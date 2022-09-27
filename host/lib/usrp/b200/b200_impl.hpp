@@ -50,6 +50,7 @@
  * UDP ports for the E310 communication
  * ports 49200 - 49210
  * */
+#define MICROPHASE_E310_UDP_FIND_PORT 49100
 #define MICROPHASE_E310_UDP_CTRL_PORT 49200
 #define MICROPHASE_E310_UDP_DATA_TX_PORT 49202
 #define MICROPHASE_E310_UDP_DATA_RX_PORT 49204
@@ -406,8 +407,7 @@ private:
         boost::shared_ptr<async_md_type> old_async_queue;
     };
 
-    //rx connect
-    void _program_dispatcher(uhd::transport::zero_copy_if& xport);
+
 
     static size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
     typedef boost::function<double(void)> tick_rate_retriever_t;

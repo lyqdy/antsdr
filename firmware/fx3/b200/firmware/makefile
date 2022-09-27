@@ -25,7 +25,7 @@ SOURCE += $(MODULE).c b200_i2c.c b200_usb_descriptors.c ../common/common_helpers
 INCFLAGS = -I../common
 
 LDLIBS  += \
-	"$$ARMGCC_INSTALL_PATH"/arm-none-eabi/lib/libm.a
+	"$(ARMGCC_INSTALL_PATH)"/arm-none-eabi/lib/libm.a
 
 C_OBJECT=$(SOURCE:%.c=./%.o)
 A_OBJECT=$(SOURCE_ASM:%.S=./%.o)
