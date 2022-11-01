@@ -98,6 +98,7 @@ mboard_eeprom_t b200_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
 {
     auto rev   = _get_rev(iface);
     auto bytes = _get_eeprom(iface);
+    /* microphase */
 //    std::cout<<"rev:"<<rev<<std::endl;
 //    std::cout<<"bytes.size:"<<bytes.size()<<std::endl;
     mboard_eeprom_t mb_eeprom;
@@ -106,6 +107,7 @@ mboard_eeprom_t b200_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
     }
 
     auto eeprom_map = (rev == 0) ? B200_REV0_MAP : B200_REV1_MAP;
+//    /* microphase */
 //    int i = 0;
 //    for(auto it:bytes){
 //        std::cout<<boost::format("0x%-2x  ")%(int)it;
@@ -125,6 +127,8 @@ mboard_eeprom_t b200_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
         mb_eeprom[element.first] = (element.second.length == 2)
                                        ? uint16_bytes_to_string(element_bytes)
                                        : bytes_to_string(element_bytes);
+//        std::cout << "element first:" << element.first<<std::endl;
+//        std::cout << "element second.length:" << element.second.length<<std::endl;
     }
 
     if (rev > 0) {

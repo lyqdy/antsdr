@@ -272,7 +272,8 @@ static device_addrs_t b200_find(const device_addr_t &hint) {
 
             device_addr_t new_addr;
             new_addr["type"] = "b200";
-            new_addr["name"] = mb_eeprom["name"];
+//            new_addr["name"] = mb_eeprom["name"];
+            new_addr["name"] = handle->get_product();
             new_addr["serial"] = handle->get_serial();
             try {
                 // Turn the 16-Bit product ID into a string representation

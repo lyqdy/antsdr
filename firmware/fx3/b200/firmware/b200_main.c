@@ -2276,6 +2276,10 @@ void b200_usb_init(void) {
     CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_CONFIG_DESCR, 0,
         (uint8_t *)b200_usb_ss_config_desc);
 
+//    /* microphase */
+//    CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR,0,
+//                    (uint8_t *)b200_dev_serial_desc);
+
     /* BOS Descriptor */
     CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_BOS_DESCR, 0,
         (uint8_t *)common_usb_bos_desc);
@@ -2291,7 +2295,7 @@ void b200_usb_init(void) {
         (uint8_t *)product_string);
 
     CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 3,
-        (uint8_t *)serial_string);
+        (uint8_t *)b200_dev_serial_desc);
 
     ////////////////////////////////////////////////////////
 
