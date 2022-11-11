@@ -80,6 +80,7 @@ typedef struct {
     uint32_t id;
     uint32_t serial;
     uint32_t auth;
+    uint8_t  version[8];
     uint8_t serial_all[32];
 } microphase_exxx_ctrl_data_t;
 

@@ -282,9 +282,14 @@ static device_addrs_t e200_find(const device_addr_t& hint)
                 memcpy(serial,ctrl_data_in->serial_all,sizeof(serial));
                 std::string serial_str((char *)serial);
                 std::transform(serial_str.begin(),serial_str.end(),serial_str.begin(),::toupper);
+                uint8_t version[8];
+                memcpy(version,ctrl_data_in->version,sizeof(version));
+
+                std::string version_str((char *)version,sizeof(version));
                 mp_addr["serial"] = serial_str;
                 mp_addr["name"] = "ANTSDR-E200";
                 mp_addr["product"] = "E200";
+                mp_addr["version"] = version_str;
                 // found the device,open up for communication!
                 b200_addrs.push_back(mp_addr);
             } else {
