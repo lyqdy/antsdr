@@ -129,9 +129,9 @@ public:
             case AD9361_RX_BAND0:
                 return 0; // Set these all to
             case AD9361_RX_BAND1:
-                return 3e9; // zero, so RF port A
+                return 0; // zero, so RF port A
             case AD9361_TX_BAND0:
-                return 3e9; // is used all the time
+                return 0; // is used all the time
             default:
                 return 0; // On both Rx and Tx
         }
@@ -282,14 +282,14 @@ static device_addrs_t e200_find(const device_addr_t& hint)
                 memcpy(serial,ctrl_data_in->serial_all,sizeof(serial));
                 std::string serial_str((char *)serial);
                 std::transform(serial_str.begin(),serial_str.end(),serial_str.begin(),::toupper);
-                uint8_t version[8];
-                memcpy(version,ctrl_data_in->version,sizeof(version));
-
-                std::string version_str((char *)version,sizeof(version));
+//                uint8_t version[8];
+//                memcpy(version,ctrl_data_in->version,sizeof(version));
+//
+//                std::string version_str((char *)version,sizeof(version));
                 mp_addr["serial"] = serial_str;
                 mp_addr["name"] = "ANTSDR-E200";
                 mp_addr["product"] = "E200";
-                mp_addr["version"] = version_str;
+//                mp_addr["version"] = version_str;
                 // found the device,open up for communication!
                 b200_addrs.push_back(mp_addr);
             } else {
@@ -370,7 +370,7 @@ e200_impl::e200_impl(
          * because the e310 is using b200_driver
          * */
         // try to match the given device address with something on the USB bus
-        _product = B205MINI;
+        _product = B210;
         _product_mp = E310;
         const std::string addr = device_addr["addr"];
         UHD_LOGGER_INFO("E200") << "Detected Device: ANTSDR";
@@ -403,9 +403,13 @@ e200_impl::e200_impl(
         // does not have an FE2, so we don't swap FEs.
 
         // Swapped setup:
-        _fe1                 = 1;
-        _fe2                 = 0;
-        _gpio_state.swap_atr = 1;
+//        _fe1                 = 1;
+//        _fe2                 = 0;
+//        _gpio_state.swap_atr = 1;
+        /* e310v2 */
+        _fe1                 = 0;
+        _fe2                 = 1;
+        _gpio_state.swap_atr = 0;
         // Unswapped setup:
         if (_product == B200MINI or _product == B205MINI
             or (_product == B200_ and _revision >= 5)) {
@@ -561,10 +565,17 @@ e200_impl::e200_impl(
         _data_tx_transport = udp_zero_copy::make(
                 addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_TX_PORT), default_buff_args,
                 ignored_out_params, fi_hints);
-//        if(_data_tx_transport.get()){
-//            _program_dispatcher(*_data_tx_transport);
-//        }
+
         while (_data_tx_transport->get_recv_buff(0.0)) {
+        }
+
+        if(_product == B210){
+            _data_tx1_transport = udp_zero_copy::make(
+                    addr, BOOST_STRINGIZE(MICROPHASE_E310_UDP_DATA_TX1_PORT), default_buff_args,
+                    ignored_out_params, fi_hints);
+
+            while (_data_tx1_transport->get_recv_buff(0.0)) {
+            }
         }
         ////////////////////////////////////////////////////////////////////
         // create time and clock control objects

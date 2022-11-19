@@ -53,6 +53,7 @@
 #define MICROPHASE_E310_UDP_FIND_PORT 49100
 #define MICROPHASE_E310_UDP_CTRL_PORT 49200
 #define MICROPHASE_E310_UDP_DATA_TX_PORT 49202
+#define MICROPHASE_E310_UDP_DATA_TX1_PORT 49203
 #define MICROPHASE_E310_UDP_DATA_RX_PORT 49204
 
 #define MICROPHASE_E310_FW_COMPAT_NUM 2
@@ -80,7 +81,7 @@ typedef struct {
     uint32_t id;
     uint32_t serial;
     uint32_t auth;
-    uint8_t  version[8];
+//    uint8_t  version[8];
     uint8_t serial_all[32];
 } microphase_exxx_ctrl_data_t;
 
@@ -197,6 +198,7 @@ private:
 
     /* microphase */
     uhd::transport::zero_copy_if::sptr _data_tx_transport;
+    uhd::transport::zero_copy_if::sptr _data_tx1_transport;
     uhd::transport::zero_copy_if::sptr _data_rx_transport;
     uhd::usrp::recv_packet_demuxer_3000::sptr _demux_tx;
 

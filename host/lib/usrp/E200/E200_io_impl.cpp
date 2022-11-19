@@ -620,19 +620,56 @@ tx_streamer::sptr e200_impl::get_tx_stream(const uhd::stream_args_t& args_)
 
             tick_rate_retriever_t get_tick_rate_fn =
                     boost::bind(&e200_impl::get_tick_rate, this);
-            task::sptr task =
-                    task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
-                                           fc_cache,
-                                           _data_tx_transport,
-                                           get_tick_rate_fn));
 
-            my_streamer->set_xport_chan_get_buff(stream_i,
-                                                 boost::bind(&e200_impl::_get_tx_buff_with_flowctrl,
-                                                             task,
-                                                             fc_cache,
-                                                             _data_tx_transport,
-                                                             fc_window,
-                                                             _1));
+
+            if(_product == B210){
+                if(stream_i == 0){
+                    task::sptr task =
+                            task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
+                                                   fc_cache,
+                                                   _data_tx_transport,
+                                                   get_tick_rate_fn));
+
+                    my_streamer->set_xport_chan_get_buff(stream_i,
+                                                         boost::bind(&e200_impl::_get_tx_buff_with_flowctrl,
+                                                                     task,
+                                                                     fc_cache,
+                                                                     _data_tx_transport,
+                                                                     fc_window,
+                                                                     _1));
+                }
+                else if(stream_i == 1){
+                    task::sptr task =
+                            task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
+                                                   fc_cache,
+                                                   _data_tx1_transport,
+                                                   get_tick_rate_fn));
+
+                    my_streamer->set_xport_chan_get_buff(stream_i,
+                                                         boost::bind(&e200_impl::_get_tx_buff_with_flowctrl,
+                                                                     task,
+                                                                     fc_cache,
+                                                                     _data_tx1_transport,
+                                                                     fc_window,
+                                                                     _1));
+                }
+
+            }
+            else{
+                task::sptr task =
+                        task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
+                                               fc_cache,
+                                               _data_tx_transport,
+                                               get_tick_rate_fn));
+
+                my_streamer->set_xport_chan_get_buff(stream_i,
+                                                     boost::bind(&e200_impl::_get_tx_buff_with_flowctrl,
+                                                                 task,
+                                                                 fc_cache,
+                                                                 _data_tx_transport,
+                                                                 fc_window,
+                                                                 _1));
+            }
         }
         else{
              my_streamer->set_xport_chan_get_buff(
@@ -702,22 +739,20 @@ void e200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
                             get_tick_rate(),
                             fc_cache->stream_channel);
 
-    const size_t seq = metadata.user_payload[0];
-    fc_cache->seq_queue.push_with_pop_on_full(seq);
-    standard_async_msg_prints(metadata);
-//      if (metadata.event_code == 0
-//          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
-//          const size_t seq = metadata.user_payload[0];
-//          fc_cache->seq_queue.push_with_pop_on_full(seq);
-//      }
-//
-//      // FC responses don't propagate up to the user so filter them here
-//      if (metadata.event_code != 0) {
-//          fc_cache->async_queue->push_with_pop_on_full(metadata);
-//          metadata.channel = fc_cache->device_channel;
-//          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
-//          standard_async_msg_prints(metadata);
-//      }
+//    const size_t seq = metadata.user_payload[0];
+//    fc_cache->seq_queue.push_with_pop_on_full(seq);
+//    standard_async_msg_prints(metadata);
+      if (metadata.event_code == 0
+          or metadata.event_code == async_metadata_t::EVENT_CODE_BURST_ACK) {
+          const size_t seq = metadata.user_payload[0];
+          fc_cache->seq_queue.push_with_pop_on_full(seq);
+      }
+      // FC responses don't propagate up to the user so filter them here
+      if (metadata.event_code != 0) {
+          fc_cache->async_queue->push_with_pop_on_full(metadata);
+          metadata.channel = fc_cache->device_channel;
+          fc_cache->old_async_queue->push_with_pop_on_full(metadata);
+      }
 }
 
 uhd::transport::managed_send_buffer::sptr e200_impl::_get_tx_buff_with_flowctrl(
@@ -728,6 +763,7 @@ uhd::transport::managed_send_buffer::sptr e200_impl::_get_tx_buff_with_flowctrl(
         const double timeout)
 {
     while (true) {
+
         const size_t delta = (fc_cache->last_seq_out & 0xFFF)
                              - (fc_cache->last_seq_ack & 0xFFF);
         if ((delta & 0xFFF) <= fc_pkt_window)
