@@ -554,7 +554,6 @@ tx_streamer::sptr e200_impl::get_tx_stream(const uhd::stream_args_t& args_)
     for (size_t stream_i = 0; stream_i < args.channels.size(); stream_i++) {
         /* microphase */
         const size_t chan = args.channels[stream_i];
-
         const size_t radio_index =
                 _tree->access<std::vector<size_t>>("/mboards/0/tx_chan_dsp_mapping")
                         .get()
@@ -579,7 +578,12 @@ tx_streamer::sptr e200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         ;
         static size_t bpp;
         if(_product_mp == E310){
-            bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
+            if(chan == 0){
+                bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
+            }
+            else{
+                bpp = _data_tx1_transport->get_send_frame_size() - hdr_size;
+            }
         }
         else{
             bpp = _data_transport->get_send_frame_size() - hdr_size;
@@ -623,7 +627,7 @@ tx_streamer::sptr e200_impl::get_tx_stream(const uhd::stream_args_t& args_)
 
 
             if(_product == B210){
-                if(stream_i == 0){
+                if(chan == 0){
                     task::sptr task =
                             task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
                                                    fc_cache,
@@ -638,7 +642,7 @@ tx_streamer::sptr e200_impl::get_tx_stream(const uhd::stream_args_t& args_)
                                                                      fc_window,
                                                                      _1));
                 }
-                else if(stream_i == 1){
+                else if(chan == 1){
                     task::sptr task =
                             task::make(boost::bind(&e200_impl::_handle_tx_async_msgs,
                                                    fc_cache,
