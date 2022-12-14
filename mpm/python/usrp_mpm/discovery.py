@@ -7,10 +7,8 @@
 Code to run the discovery port
 """
 
-from __future__ import print_function
 from multiprocessing import Process
 import socket
-from builtins import bytes
 from usrp_mpm.mpmtypes import MPM_DISCOVERY_PORT
 from usrp_mpm.mpmlog import get_main_logger
 from usrp_mpm.mpmutils import to_binary_str
@@ -30,8 +28,6 @@ def spawn_discovery_process(shared_state, discovery_addr):
     Returns a process that contains the device discovery.
 
     Arguments:
-    device_info -- A dictionary of type string -> string. All of these items
-                   will be included in the response string.
     shared_state -- Shared state of device (is it claimed, etc.). Is a
                     SharedState() object.
     discovery_addr -- Discovery will listen on this address(es)
@@ -57,6 +53,7 @@ def _discovery_process(state, discovery_addr):
             [b"type="+state.dev_type.value] + \
             [b"product="+state.dev_product.value] + \
             [b"serial="+state.dev_serial.value] + \
+            [b"fpga="+state.dev_fpga_type.value] + \
             [RESPONSE_CLAIMED_KEY+to_binary_str("={}".format(state.claim_status.value))]
         )
 

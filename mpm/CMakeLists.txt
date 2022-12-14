@@ -18,24 +18,28 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake/Modules)
-set(UHD_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../host)
+set(UHD_HOST_ROOT ${CMAKE_SOURCE_DIR}/../host)
+list(INSERT CMAKE_MODULE_PATH 0 ${UHD_HOST_ROOT}/cmake/Modules)
 ########################################################################
 # Setup Python API
 ########################################################################
+
 # We don't need to support older versions of Python, since we will always
 # deploy this on devices where we control the Python version.
 # MPM might work with future versions of Python, but we make no guarantees.
-set(MPM_PYTHON_VERSION 3.5)
+set(PYTHON_MIN_VERSION 3.5)
 
-# This variable is a helper for the find_package() commands below, and only
-# takes effect if the build is happening on a system where the FindPython*.cmake
-# files are older than ${MPM_PYTHON_VERSION}, which is usually not the case.
-set(PYTHON_ADDITIONAL_VERSIONS ${MPM_PYTHON_VERSION})
-find_package(PythonInterp ${MPM_PYTHON_VERSION} REQUIRED)
-find_package(PythonLibs ${MPM_PYTHON_VERSION} REQUIRED)
-# Now, we can also include CMake modules from UHD:
-list(INSERT CMAKE_MODULE_PATH 0 ${UHD_SOURCE_DIR}/cmake/Modules)
+# search the Python interpreter, modules and include directories
+include(UHDPython)
 
+########################################################################
+# Find Python Modules
+########################################################################
+PYTHON_CHECK_MODULE(
+    "Mako templates 0.4.2 or greater"
+    "mako" "mako.__version__ >= '0.4.2'"
+    HAVE_PYTHON_MODULE_MAKO
+)
 
 ########################################################################
 # Version Information
@@ -124,7 +128,7 @@ if(_has_no_psabi)
     message(STATUS "Disabling psABI warnings.")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-psabi")
 endif(_has_no_psabi)
-set(MPM_ALL_DEVICES n3xx e320 e31x tests)
+set(MPM_ALL_DEVICES n3xx e320 e31x x4xx sim tests)
 set(MPM_DEVICE "n3xx" CACHE STRING "Choose an MPM device to build")
 set_property(CACHE MPM_DEVICE PROPERTY STRINGS ${MPM_ALL_DEVICES})
 # Validate MPM_DEVICE
@@ -142,41 +146,55 @@ elseif(MPM_DEVICE STREQUAL "e320")
     set(ENABLE_E320 ON)
 elseif(MPM_DEVICE STREQUAL "e31x")
     set(ENABLE_E300 ON)
+elseif(MPM_DEVICE STREQUAL "x4xx")
+    set(ENABLE_X400 ON)
+    set(DEVICE_LIBRARIES "metal")
+elseif(MPM_DEVICE STREQUAL "sim")
+    set(ENABLE_SIM TRUE)
+    set(ENABLE_LIBMPM OFF)
 endif()
 
 MPM_REGISTER_COMPONENT("LibMPM" ENABLE_LIBMPM ON "Boost_FOUND" OFF ON)
+MPM_REGISTER_COMPONENT("RegMaps" ENABLE_REGMAPS ON "HAVE_PYTHON_MODULE_MAKO" OFF OFF)
 MPM_REGISTER_COMPONENT("Mykonos" ENABLE_MYKONOS OFF "ENABLE_LIBMPM" OFF OFF)
 MPM_REGISTER_COMPONENT("Magnesium" ENABLE_MAGNESIUM OFF "ENABLE_MYKONOS" OFF OFF)
 MPM_REGISTER_COMPONENT("E320" ENABLE_E320 OFF "ENABLE_LIBMPM" OFF OFF)
 MPM_REGISTER_COMPONENT("E300" ENABLE_E300 OFF "ENABLE_LIBMPM" OFF OFF)
+MPM_REGISTER_COMPONENT("X400" ENABLE_X400 OFF "ENABLE_LIBMPM;ENABLE_REGMAPS" OFF OFF)
 
-add_subdirectory(include)
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_BINARY_DIR}/include
-    ${UHD_SOURCE_DIR}/include
-)
+if(NOT ENABLE_SIM)
+    add_subdirectory(include)
+    include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_BINARY_DIR}/include
+        ${UHD_HOST_ROOT}/include
+    )
 
-add_subdirectory(lib)
+    add_subdirectory(lib)
 
-message("usrp_periphs objects: ${usrp_periphs_objects}")
-add_library(usrp-periphs SHARED ${usrp_periphs_objects})
-target_link_libraries(usrp-periphs
-    udev
-    ${Boost_LIBRARIES}
-)
+    message("usrp_periphs objects: ${usrp_periphs_objects}")
+    add_library(usrp-periphs SHARED ${usrp_periphs_objects})
+    target_link_libraries(usrp-periphs
+        udev
+        ${Boost_LIBRARIES}
+        ${DEVICE_LIBRARIES}
+    )
 
-install(TARGETS usrp-periphs LIBRARY DESTINATION ${LIBRARY_DIR} COMPONENT libraries)
+    install(TARGETS usrp-periphs LIBRARY DESTINATION ${LIBRARY_DIR} COMPONENT libraries)
 
-# TODO: Come up with a versioning scheme for the MPM ABI. Not high priority
-# though... we're the only ones linking against that.
-set_target_properties(usrp-periphs PROPERTIES VERSION "${MPM_VERSION_MAJOR}.${MPM_VERSION_API}.${MPM_VERSION_ABI}")
-set_target_properties(usrp-periphs PROPERTIES SOVERSION ${MPM_VERSION_MAJOR})
+    # TODO: Come up with a versioning scheme for the MPM ABI. Not high priority
+    # though... we're the only ones linking against that.
+    set_target_properties(usrp-periphs PROPERTIES VERSION "${MPM_VERSION_MAJOR}.${MPM_VERSION_API}.${MPM_VERSION_ABI}")
+    set_target_properties(usrp-periphs PROPERTIES SOVERSION ${MPM_VERSION_MAJOR})
+
+    add_subdirectory(systemd)
+    add_subdirectory(tools)
+endif(NOT ENABLE_SIM)
 
 enable_testing()
 add_subdirectory(python)
-add_subdirectory(tools)
-add_subdirectory(systemd)
+
+
 
 ########################################################################
 # Print Summary

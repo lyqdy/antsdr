@@ -15,14 +15,13 @@ from six import itervalues
 from usrp_mpm.components import ZynqComponents
 from usrp_mpm.dboard_manager import E31x_db
 from usrp_mpm.gpsd_iface import GPSDIfaceExtension
-from usrp_mpm.mpmtypes import SID
 from usrp_mpm.mpmutils import assert_compat_number, str2bool
 from usrp_mpm.periph_manager import PeriphManagerBase
 from usrp_mpm.rpc_server import no_rpc
 from usrp_mpm.sys_utils import dtoverlay
 from usrp_mpm.sys_utils.sysfs_thermal import read_sysfs_sensors_value
 from usrp_mpm.sys_utils.udev import get_spidev_nodes
-from usrp_mpm.xports import XportMgrLiberio
+from usrp_mpm.xports import XportMgrUDP
 from usrp_mpm.periph_manager.e31x_periphs import MboardRegsControl
 from usrp_mpm.sys_utils.udev import get_eeprom_paths
 from usrp_mpm import e31x_legacy_eeprom
@@ -31,18 +30,33 @@ E310_DEFAULT_CLOCK_SOURCE = 'internal'
 E310_DEFAULT_TIME_SOURCE = 'internal'
 E310_DEFAULT_ENABLE_FPGPIO = True
 E310_DEFAULT_DONT_RELOAD_FPGA = False # False means idle image gets reloaded
-E310_FPGA_COMPAT = (1, 0)
+E310_FPGA_COMPAT = (6, 0)
 E310_DBOARD_SLOT_IDX = 0
+E310_GPIO_SRC_PS = "PS"
+# We use the index positions of RFA and RFB to map between name and radio index
+E310_GPIO_SRCS = ("RFA", "RFB", E310_GPIO_SRC_PS)
+E310_FPGPIO_WIDTH = 6
+E310_GPIO_BANKS = ["INT0",]
 
 ###############################################################################
 # Transport managers
 ###############################################################################
 # pylint: disable=too-few-public-methods
-class E310XportMgrLiberio(XportMgrLiberio):
-    " E310-specific Liberio configuration "
-    max_chan = 4
-    xbar_dev = "/dev/crossbar0"
-    xbar_port = 0
+
+class E310XportMgrUDP(XportMgrUDP):
+    "E310-specific UDP configuration"
+    iface_config = {
+        'int0': {
+            'label': 'misc-enet-int-regs',
+            'type': 'internal',
+        },
+        'eth0': {
+            'label': '',
+            'type': 'forward',
+        }
+    }
+
+
 # pylint: enable=too-few-public-methods
 
 ###############################################################################
@@ -109,7 +123,7 @@ class e31x(ZynqComponents, PeriphManagerBase):
     # in stale references to methods in the RPC server. Setting
     # this to True ensures that the RPC server clears all registered
     # methods on unclaim() and registers them on the following claim().
-    clear_rpc_method_registry_on_unclaim = True
+    clear_rpc_registry_on_unclaim = True
 
     @classmethod
     def generate_device_info(cls, eeprom_md, mboard_info, dboard_infos):
@@ -226,7 +240,6 @@ class e31x(ZynqComponents, PeriphManagerBase):
             # Don't try and figure out what's going on. Just give up.
             return
         self._time_source = None
-        self._available_endpoints = list(range(256))
         self.dboard = self.dboards[E310_DBOARD_SLOT_IDX]
         try:
             self._init_peripherals(self.args_cached)
@@ -312,14 +325,11 @@ class e31x(ZynqComponents, PeriphManagerBase):
         self.mboard_regs_control.get_build_timestamp()
         self._check_fpga_compat()
         self._update_fpga_type()
-        self.crossbar_base_port = self.mboard_regs_control.get_xbar_baseport()
-        self.log.debug("crossbar base port: {}".format(self.crossbar_base_port))
-
         # Init clocking
         self._init_ref_clock_and_time(args)
         # Init CHDR transports
         self._xport_mgrs = {
-            'liberio': E310XportMgrLiberio(self.log.getChild('liberio')),
+            'udp': E310XportMgrUDP(self.log, args)
         }
         # Init complete.
         self.log.debug("mboard info: {}".format(self.mboard_info))
@@ -333,14 +343,15 @@ class e31x(ZynqComponents, PeriphManagerBase):
 
         If no EEPROM is defined, returns empty values.
         """
+        (self._eeprom_head, self.eeprom_rawdata) = {}, b''
         eeprom_path = \
             get_eeprom_paths(self.mboard_eeprom_addr)[self.mboard_eeprom_path_index]
         if not eeprom_path:
             self.log.error("Could not identify EEPROM path for %s!",
                            self.mboard_eeprom_addr)
-            return {}, b''
+            return
         self.log.trace("MB EEPROM: Using path {}".format(eeprom_path))
-        (eeprom_head, eeprom_rawdata) = e31x_legacy_eeprom.read_eeprom(
+        (self._eeprom_head, self.eeprom_rawdata) = e31x_legacy_eeprom.read_eeprom(
             True, # is_motherboard
             eeprom_path,
             self.mboard_eeprom_offset,
@@ -348,21 +359,10 @@ class e31x(ZynqComponents, PeriphManagerBase):
             e31x_legacy_eeprom.MboardEEPROM.eeprom_header_keys,
             self.mboard_eeprom_max_len
         )
-        self.log.trace("Read %d bytes of EEPROM data.", len(eeprom_rawdata))
-        return eeprom_head, eeprom_rawdata
+        self.log.trace("Read %d bytes of EEPROM data.", len(self.eeprom_rawdata))
 
-    def _get_dboard_eeprom_info(self):
-        """
-        Read back EEPROM info from the daughterboards
-        """
-        assert self.dboard_eeprom_addr
-        self.log.trace("Identifying dboard EEPROM paths from `{}'..."
-                       .format(self.dboard_eeprom_addr))
-        dboard_eeprom_path = \
-            get_eeprom_paths(self.dboard_eeprom_addr)[self.dboard_eeprom_path_index]
-        self.log.trace("Using dboard EEPROM paths: {}".format(dboard_eeprom_path))
-        self.log.debug("Reading EEPROM info for dboard...")
-        dboard_eeprom_md, dboard_eeprom_rawdata = e31x_legacy_eeprom.read_eeprom(
+    def _read_dboard_eeprom_data(self, dboard_eeprom_path):
+        return e31x_legacy_eeprom.read_eeprom(
             False, # is not motherboard.
             dboard_eeprom_path,
             self.dboard_eeprom_offset,
@@ -370,18 +370,6 @@ class e31x(ZynqComponents, PeriphManagerBase):
             e31x_legacy_eeprom.DboardEEPROM.eeprom_header_keys,
             self.dboard_eeprom_max_len
         )
-        self.log.trace("Read %d bytes of dboard EEPROM data.",
-                       len(dboard_eeprom_rawdata))
-        db_pid = dboard_eeprom_md.get('pid')
-        if db_pid is None:
-            self.log.warning("No DB PID found in dboard EEPROM!")
-        else:
-            self.log.debug("Found DB PID in EEPROM: 0x{:04X}".format(db_pid))
-        return [{
-            'eeprom_md': dboard_eeprom_md,
-            'eeprom_rawdata': dboard_eeprom_rawdata,
-            'pid': db_pid,
-        }]
 
     ###########################################################################
     # Session init and deinit
@@ -457,8 +445,6 @@ class e31x(ZynqComponents, PeriphManagerBase):
         super(e31x, self).deinit()
         for xport_mgr in itervalues(self._xport_mgrs):
             xport_mgr.deinit()
-        self.log.trace("Resetting SID pool...")
-        self._available_endpoints = list(range(256))
         if not self._do_not_reload:
             self.tear_down()
         # Reset back to value from _default_args (mpm.conf)
@@ -496,56 +482,30 @@ class e31x(ZynqComponents, PeriphManagerBase):
             self.log.trace("Found idle overlay: %s", idle_overlay)
         return is_idle
 
+
     ###########################################################################
     # Transport API
     ###########################################################################
-    def request_xport(
-            self,
-            dst_address,
-            suggested_src_address,
-            xport_type
-        ):
+    def get_chdr_link_types(self):
         """
-        See PeriphManagerBase.request_xport() for docs.
+        See PeriphManagerBase.get_chdr_link_types() for docs.
         """
-        # Try suggested address first, then just pick the first available one:
-        src_address = suggested_src_address
-        if src_address not in self._available_endpoints:
-            if not self._available_endpoints:
-                raise RuntimeError(
-                    "Depleted pool of SID endpoints for this device!")
-            else:
-                src_address = self._available_endpoints[0]
-        sid = SID(src_address << 16 | dst_address)
-        # Note: This SID may change its source address!
-        self.log.trace(
-            "request_xport(dst=0x%04X, suggested_src_address=0x%04X, xport_type=%s): " \
-            "operating on temporary SID: %s",
-            dst_address, suggested_src_address, str(xport_type), str(sid))
-        assert self.mboard_info['rpc_connection'] in ('local')
-        if self.mboard_info['rpc_connection'] == 'local':
-            return self._xport_mgrs['liberio'].request_xport(
-                sid,
-                xport_type,
-            )
+        assert self.mboard_info['rpc_connection'] in ('remote', 'local')
+        return ["udp"]
 
-    def commit_xport(self, xport_info):
+    def get_chdr_link_options(self, xport_type):
         """
-        See PeriphManagerBase.commit_xport() for docs.
-
-        Reminder: All connections are incoming, i.e. "send" or "TX" means
-        remote device to local device, and "receive" or "RX" means this local
-        device to remote device. "Remote device" can be, for example, a UHD
-        session.
+        See PeriphManagerBase.get_chdr_link_options() for docs.
         """
-        ## Go, go, go
-        assert self.mboard_info['rpc_connection'] in ('local')
-        sid = SID(xport_info['send_sid'])
-        self._available_endpoints.remove(sid.src_ep)
-        self.log.debug("Committing transport for SID %s, xport info: %s",
-                       str(sid), str(xport_info))
-        if self.mboard_info['rpc_connection'] == 'local':
-            return self._xport_mgrs['liberio'].commit_xport(sid, xport_info)
+        if xport_type not in self._xport_mgrs:
+            self.log.warning("Can't get link options for unknown link type: `{}'."
+                             .format(xport_type))
+            return []
+        if xport_type == "udp":
+            return self._xport_mgrs[xport_type].get_chdr_link_options(
+                self.mboard_info['rpc_connection'])
+        else:
+            return self._xport_mgrs[xport_type].get_chdr_link_options()
 
     ###########################################################################
     # Device info
@@ -606,40 +566,70 @@ class e31x(ZynqComponents, PeriphManagerBase):
         self.mboard_regs_control.set_time_source(time_source)
 
     ###########################################################################
+    # GPIO API
+    ###########################################################################
+    def get_gpio_banks(self):
+        """
+        Returns a list of GPIO banks over which MPM has any control
+        """
+        return E310_GPIO_BANKS
+
+    def get_gpio_srcs(self, bank):
+        """
+        Return a list of valid GPIO sources for a given bank
+        """
+        assert bank in self.get_gpio_banks(), "Invalid GPIO bank: {}".format(bank)
+        return E310_GPIO_SRCS
+
+    def get_gpio_src(self, bank):
+        """
+        Return the currently selected GPIO source for a given bank. The return
+        value is a list of strings. The length of the vector is identical to
+        the number of controllable GPIO pins on this bank.
+        """
+        assert bank in self.get_gpio_banks(), "Invalid GPIO bank: {}".format(bank)
+        gpio_master_reg = self.mboard_regs_control.get_fp_gpio_master()
+        gpio_radio_src_reg = self.mboard_regs_control.get_fp_gpio_radio_src()
+        def get_gpio_src_i(gpio_pin_index):
+            """
+            Return the current radio source given a pin index.
+            """
+            if gpio_master_reg & (1 << gpio_pin_index):
+                return E310_GPIO_SRC_PS
+            radio_src = (gpio_radio_src_reg >> (2 * gpio_pin_index)) & 0b11
+            assert radio_src in (0, 1)
+            return E310_GPIO_SRCS[radio_src]
+        return [get_gpio_src_i(i) for i in range(E310_FPGPIO_WIDTH)]
+
+    def set_gpio_src(self, bank, src):
+        """
+        Set the GPIO source for a given bank.
+        """
+        assert bank in self.get_gpio_banks(), "Invalid GPIO bank: {}".format(bank)
+        assert len(src) == E310_FPGPIO_WIDTH, \
+            "Invalid number of GPIO sources!"
+        gpio_master_reg = 0x00
+        gpio_radio_src_reg = self.mboard_regs_control.get_fp_gpio_radio_src()
+        for src_index, src_name in enumerate(src):
+            if src_name not in self.get_gpio_srcs(bank):
+                raise RuntimeError(
+                    "Invalid GPIO source name `{}' at bit position {}!"
+                    .format(src_name, src_index))
+            gpio_master_flag = (src_name == E310_GPIO_SRC_PS)
+            gpio_master_reg = gpio_master_reg | (gpio_master_flag << src_index)
+            if gpio_master_flag:
+                continue
+            # If PS is not the master, we also need to update the radio source:
+            radio_index = E310_GPIO_SRCS.index(src_name)
+            gpio_radio_src_reg = gpio_radio_src_reg | (radio_index << (2*src_index))
+        self.log.trace("Updating GPIO source: master==0x{:02X} radio_src={:03X}"
+                       .format(gpio_master_reg, gpio_radio_src_reg))
+        self.mboard_regs_control.set_fp_gpio_master(gpio_master_reg)
+        self.mboard_regs_control.set_fp_gpio_radio_src(gpio_radio_src_reg)
+
+    ###########################################################################
     # Hardware peripheral controls
     ###########################################################################
-    def set_fp_gpio_master(self, value):
-        """set driver for front panel GPIO
-        Arguments:
-            value {unsigned} -- value is a single bit bit mask of 12 pins GPIO
-        """
-        self.mboard_regs_control.set_fp_gpio_master(value)
-
-    def get_fp_gpio_master(self):
-        """get "who" is driving front panel gpio
-           The return value is a bit mask of 8 pins GPIO.
-           0: means the pin is driven by PL
-           1: means the pin is driven by PS
-        """
-        return self.mboard_regs_control.get_fp_gpio_master()
-
-    def set_fp_gpio_radio_src(self, value):
-        """set driver for front panel GPIO
-        Arguments:
-            value {unsigned} -- value is 2-bit bit mask of 8 pins GPIO
-           00: means the pin is driven by radio 0
-           01: means the pin is driven by radio 1
-        """
-        self.mboard_regs_control.set_fp_gpio_radio_src(value)
-
-    def get_fp_gpio_radio_src(self):
-        """get which radio is driving front panel gpio
-           The return value is 2-bit bit mask of 8 pins GPIO.
-           00: means the pin is driven by radio 0
-           01: means the pin is driven by radio 1
-        """
-        return self.mboard_regs_control.get_fp_gpio_radio_src()
-
     def set_channel_mode(self, channel_mode):
         "Set channel mode in FPGA and select which tx channel to use"
         self.mboard_regs_control.set_channel_mode(channel_mode)
@@ -769,3 +759,22 @@ class e31x(ZynqComponents, PeriphManagerBase):
         fpga_type = "" # FIXME
         self.log.debug("Updating mboard FPGA type info to {}".format(fpga_type))
         self.updateable_components['fpga']['type'] = fpga_type
+
+    #######################################################################
+    # Timekeeper API
+    #######################################################################
+    def get_clocks(self):
+        """
+        Gets the RFNoC-related clocks present in the FPGA design
+        """
+        return [
+            {
+                'name': 'radio_clk',
+                'freq': str(self.dboard.get_master_clock_rate()),
+                'mutable': 'true'
+            },
+            {
+                'name': 'bus_clk',
+                'freq': str(100e6),
+            }
+        ]

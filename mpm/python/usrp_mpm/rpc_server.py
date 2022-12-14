@@ -13,6 +13,8 @@ import copy
 from random import choice
 from string import ascii_letters, digits
 from multiprocessing import Process
+import threading
+import sys
 from gevent.server import StreamServer
 from gevent.pool import Pool
 from gevent import signal
@@ -20,9 +22,6 @@ from gevent import spawn_later
 from gevent import Greenlet
 from gevent import monkey
 monkey.patch_all()
-from builtins import str, bytes
-from builtins import range
-from six import iteritems
 from contextlib import contextmanager
 from mprpc import RPCServer
 from usrp_mpm.mpmlog import get_main_logger
@@ -33,7 +32,7 @@ from usrp_mpm.sys_utils import net
 TIMEOUT_INTERVAL = 5.0 # Seconds before claim expires (default value)
 TOKEN_LEN = 16 # Length of the token string
 # Compatibility number for MPM
-MPM_COMPAT_NUM = (1, 2)
+MPM_COMPAT_NUM = (4, 0)
 
 def no_claim(func):
     " Decorator for functions that require no token check "
@@ -51,7 +50,8 @@ class MPMServer(RPCServer):
     RPC calls to appropiate calls in the periph_manager and dboard_managers.
     """
     # This is a list of methods in this class which require a claim
-    default_claimed_methods = ['init', 'update_component', 'reclaim', 'unclaim']
+    default_claimed_methods = ['init', 'update_component', 'reclaim', 'unclaim',
+                               'get_log_buf']
 
     ###########################################################################
     # RPC Server Initialization
@@ -87,6 +87,8 @@ class MPMServer(RPCServer):
                 to_binary_str(device_info.get("product", "n/a"))
         self._state.dev_serial.value = \
                 to_binary_str(device_info.get("serial", "n/a"))
+        self._state.dev_fpga_type.value = \
+                to_binary_str(device_info.get("fpga", "n/a"))
         self._db_methods = []
         self._mb_methods = []
         self.claimed_methods = copy.copy(self.default_claimed_methods)
@@ -120,7 +122,7 @@ class MPMServer(RPCServer):
                     delattr(self, method)
                 else:
                     self.log.warning(
-                        "Attempted to remove non-existant method: %s",
+                        "Attempted to remove non-existent method: %s",
                         method
                     )
         self._db_methods = []
@@ -184,7 +186,7 @@ class MPMServer(RPCServer):
                 return function(*args)
             except Exception as ex:
                 self.log.error(
-                    "Uncaught exception in method %s :%s \n %s ",
+                    "Uncaught exception in method %s: %s \n %s ",
                     command, str(ex), traceback.format_exc()
                 )
                 self._last_error = str(ex)
@@ -288,7 +290,7 @@ class MPMServer(RPCServer):
         self._state.claim_status.value = True
         self.periph_manager.claimed = True
         self.periph_manager.claim()
-        if self.periph_manager.clear_rpc_method_registry_on_unclaim:
+        if self.periph_manager.clear_rpc_registry_on_unclaim:
             self._init_rpc_calls(self.periph_manager)
         self._state.lock.release()
         self.session_id = session_id + " ({})".format(self.client_host)
@@ -298,7 +300,7 @@ class MPMServer(RPCServer):
             self._state.claim_token.value,
             self.client_host
         )
-        if self.client_host in net.get_local_ip_addrs():
+        if _is_connection_local(self.client_host):
             self.periph_manager.set_connection_type("local")
         else:
             self.periph_manager.set_connection_type("remote")
@@ -335,24 +337,35 @@ class MPMServer(RPCServer):
 
         Resets and deinitalizes the periph manager as well.
         """
-        self.log.debug("Releasing claim on session `{}'".format(
-            self.session_id
-        ))
-        self._state.claim_status.value = False
-        self._state.claim_token.value = b''
-        self.session_id = None
-        if self.periph_manager.clear_rpc_method_registry_on_unclaim:
+        self._state.lock.acquire()
+        self.log.debug(
+            "Deinitializing device and releasing claim on session `{}'"
+            .format(self.session_id))
+        # Disable unclaim timer, we're now finished with reclaim loops.
+        self._timer.kill(block=False)
+        # We might need to clear the method registry
+        if self.periph_manager.clear_rpc_registry_on_unclaim:
             self.clear_method_registry()
+        # Now unclaim and deinit the device. We will try and catch any exception
+        # here, because the session is over and we have nowhere to send the
+        # exception.
         try:
             self.periph_manager.claimed = False
             self.periph_manager.unclaim()
             self.periph_manager.set_connection_type(None)
             self.periph_manager.deinit()
-        except Exception as ex:
+        except BaseException as ex:
             self._last_error = str(ex)
-            self.log.error("deinit() failed: %s", str(ex))
+            self.log.error("Deinitialization failed: %s", str(ex))
             # Don't want to propagate this failure -- the session is over
-        self._timer.kill()
+        finally:
+            # The finally clause is not strictly necessary, because we're catching
+            # everything and not returning, but it should be explicit that we
+            # must always clear the claim and the _state lock at this point.
+            self._state.claim_status.value = False
+            self._state.claim_token.value = b''
+            self._state.lock.release()
+            self.session_id = None
 
     def unclaim(self, token):
         """
@@ -404,7 +417,7 @@ class MPMServer(RPCServer):
         """
         info = self.periph_manager.get_device_info()
         info["mpm_version"] = "{}.{}".format(*MPM_COMPAT_NUM)
-        if self.client_host in net.get_local_ip_addrs():
+        if _is_connection_local(self.client_host):
             info["connection"] = "local"
         else:
             info["connection"] = "remote"
@@ -433,7 +446,7 @@ class MPMServer(RPCServer):
         log_records = get_main_logger().get_log_buf()
         self.log.trace("Returning %d log records.", len(log_records))
         return [
-            {k: str(v) for k, v in iteritems(record)}
+            {k: str(v) for k, v in iter(record.items())}
             for record in log_records
         ]
 
@@ -480,7 +493,7 @@ class MPMServer(RPCServer):
             unpack_params={'max_buffer_size': 50000000, 'raw': False},
         )
 
-    def reset_mgr(self):
+    def _reset_mgr(self):
         """
         Reset the Peripheral Manager for this RPC server.
         """
@@ -492,6 +505,39 @@ class MPMServer(RPCServer):
         # Clear the method cache in order to remove stale references to
         # methods from the old peripheral manager (the one before reset)
         self.clear_method_registry()
+        # update the FPGA type information in the state
+        device_info = self.periph_manager.get_device_info()
+        self._state.dev_fpga_type.value = \
+                to_binary_str(device_info.get("fpga", "n/a"))
+
+    def reset_timer_and_mgr(self, token):
+        """
+        Pause the timers, reset the peripheral manager and restart the
+        timers.
+        """
+        # Check the claimed status
+        if not self._check_token_valid(token):
+            self._last_error =\
+                "Attempt to reset manager without valid claim from {}".format(
+                    self.client_host
+                )
+            self.log.error(self._last_error)
+            raise RuntimeError("Attempt to reset manager without valid claim.")
+
+        # Stop the timer, reset_timer_and_mgr can take some time:
+        with self._timeout_disabler():
+            try:
+                self._reset_mgr()
+                self.log.debug("Reset the periph manager")
+            except Exception as ex:
+                self.log.error(
+                    "Error in reset_timer_and_mgr: {}".format(
+                        ex
+                    ))
+                self._last_error = str(ex)
+
+        self.log.debug("End of reset_timer_and_mgr")
+        self._reset_timer()
 
     def update_component(self, token, file_metadata_l, data_l):
         """"
@@ -520,16 +566,16 @@ class MPMServer(RPCServer):
                 component_id = metadata['id']
                 if component_id in self.periph_manager.updateable_components:
                     # Check if that updating that component means the PM should be reset
-                    if self.periph_manager.updateable_components[component_id]['reset']:
-                        reset_now = True
+                    reset_now = (reset_now or
+                                 self.periph_manager.updateable_components[component_id]['reset']) and \
+                                 not metadata.get('reset', "").lower() == "false"
                 else:
                     self.log.debug("ID {} not in updateable components ({})".format(
                         component_id, self.periph_manager.updateable_components))
-
             try:
                 self.log.trace("Reset after updating component? {}".format(reset_now))
                 if reset_now:
-                    self.reset_mgr()
+                    self._reset_mgr()
                     self.log.debug("Reset the periph manager")
             except Exception as ex:
                 self.log.error(
@@ -541,6 +587,8 @@ class MPMServer(RPCServer):
         self.log.debug("End of update_component")
         self._reset_timer()
 
+def _is_connection_local(client_hostname):
+    return client_hostname in net.get_local_ip_addrs()
 
 ###############################################################################
 # Process control
@@ -555,8 +603,17 @@ def _rpc_server_process(shared_state, port, default_args):
         handle=MPMServer(shared_state, default_args),
         spawn=connections)
     # catch signals and stop the stream server
-    signal(signal.SIGTERM, lambda *args: server.stop())
-    signal(signal.SIGINT, lambda *args: server.stop())
+    # Previously, the signal callbacks simply called server.stop()
+    # gevent doesn't like this because server.stop() may block waiting
+    # for greenlets to stop, and signal callbacks are not supposed to block
+    stop_event = threading.Event()
+    def stop_worker():
+        stop_event.wait()
+        server.stop()
+        sys.exit(0)
+    threading.Thread(target=stop_worker, daemon=True).start()
+    signal.signal(signal.SIGTERM, lambda *args: stop_event.set())
+    signal.signal(signal.SIGINT, lambda *args: stop_event.set())
     server.serve_forever()
 
 

@@ -1,5 +1,6 @@
 //
 // Copyright 2018 Ettus Research, a National Instruments Company
+// Copyright 2019 Ettus Research, a National Instruments Brand
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
@@ -73,10 +74,7 @@ e31x_db_manager::e31x_db_manager(const std::string& catalina_spidev)
         AD9361_SPI_WRITE_CMD);
     // Make the SPI interface
     auto spi_io_iface = std::make_shared<e310_ad9361_io_spi>(spi_iface, 0);
-    // Translate from a std shared_ptr to Boost (for legacy compatability)
-    auto spi_io_iface_boost = boost::shared_ptr<e310_ad9361_io_spi>(
-        spi_io_iface.get(), [spi_io_iface](...) mutable { spi_io_iface.reset(); });
     // Make the actual Catalina Ctrl object
-    _catalina_ctrl = ad9361_ctrl::make_spi(
-        boost::make_shared<e31x_ad9361_client_t>(), spi_io_iface_boost);
+    _catalina_ctrl =
+        ad9361_ctrl::make_spi(std::make_shared<e31x_ad9361_client_t>(), spi_io_iface);
 }

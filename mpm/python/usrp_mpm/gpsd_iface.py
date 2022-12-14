@@ -7,7 +7,6 @@
 GPS service daemon (GPSd) interface class
 """
 
-from __future__ import print_function
 import socket
 import json
 import time
@@ -17,10 +16,95 @@ import math
 import re
 from usrp_mpm.mpmlog import get_logger
 
-GPSD_GET_SENSOR_TIMEOUT = 60 # seconds
-GPSD_GET_INFO_TIMEOUT = 15 # seconds
+def _deg_to_dm(angle):
+    """
+    Convert a latitude or longitude from NMEA degrees to degrees minutes
+    format (DDDmm.mm)
+    """
+    fraction_int_tuple = math.modf(angle)
+    return fraction_int_tuple[1] * 100 + fraction_int_tuple[0] * 60
 
-class GPSDIface(object):
+def _nmea_checksum(nmea_sentence):
+    """Calculate the checksum for a NMEA data sentence"""
+    checksum = 0
+    if not nmea_sentence.startswith('$'):
+        return checksum
+
+    for character in nmea_sentence[1:]:
+        checksum ^= ord(character)
+
+    return checksum
+
+def gpgga_from_tpv_sky(tpv_sensor_data, sky_sensor_data):
+    """
+    Turn a TPV and SKY sensor value dictionary into a GPGGA string
+    """
+    gpgga = "$GPGGA,"
+
+    if 'time' in tpv_sensor_data:
+        time_formatted = re.subn(r'\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2}):(\d{2}\.?\d*)Z',
+                                 r'\1\2\3,', tpv_sensor_data.get('time'))
+        if time_formatted[1] == 1:
+            gpgga += time_formatted[0]
+        else:
+            gpgga += ","
+    else:
+        gpgga += ","
+
+    if 'lat' in tpv_sensor_data:
+        latitude = tpv_sensor_data.get('lat')
+        latitude_direction = 'N' if latitude > 0 else 'S'
+        latitude = _deg_to_dm(abs(latitude))
+        gpgga += "{:09.4f},{},".format(latitude, latitude_direction)
+    else:
+        gpgga += "0.0,S,"
+
+    if 'lon' in tpv_sensor_data:
+        longitude = tpv_sensor_data['lon']
+        longitude_direction = 'E' if longitude > 0 else 'W'
+        longitude = _deg_to_dm(abs(longitude))
+        gpgga += "{:010.4f},{},".format(longitude, longitude_direction)
+    else:
+        gpgga += "0.0,W,"
+
+    quality = 0
+    if tpv_sensor_data['mode'] > 1:
+        if tpv_sensor_data.get('status') == 2:
+            quality = 2
+        else:
+            quality = 1
+    gpgga += "{:d},".format(quality)
+
+    if 'satellites' in sky_sensor_data:
+        satellites_used = 0
+        for satellite in sky_sensor_data['satellites']:
+            if 'used' in satellite and satellite['used']:
+                satellites_used += 1
+        gpgga += "{:02d},".format(satellites_used)
+    else:
+        gpgga += ","
+
+    if 'hdop' in sky_sensor_data:
+        gpgga += "{:.2f},".format(sky_sensor_data['hdop'])
+    else:
+        gpgga += ","
+
+    if 'alt' in tpv_sensor_data:
+        gpgga += "{:2f},{},".format(tpv_sensor_data['alt'], 'M')
+    else:
+        gpgga += ",,"
+
+    # separation data is not present in tpv or sky sensor data
+    gpgga += ",,"
+
+    # differential data is not present
+    gpgga += ",,"
+
+    gpgga += "*{:02X}".format(_nmea_checksum(gpgga))
+
+    return gpgga
+
+class GPSDIface:
     """
     Interface to the GPS service daemon (GPSd).
 
@@ -173,7 +257,7 @@ class GPSDIface(object):
         return result.get(resp_class, [{}])[0]
 
 
-class GPSDIfaceExtension(object):
+class GPSDIfaceExtension:
     """
     Wrapper class that facilitates the 'extension' of a `context` object. The
     intention here is for a object to instantiate a GPSDIfaceExtension object,
@@ -207,7 +291,9 @@ class GPSDIfaceExtension(object):
             self._gpsd_iface.close()
 
     def extend(self, context):
-        """Register the GSPDIfaceExtension object's public function with `context`"""
+        """
+        Register the GSPDIfaceExtension object's public function with `context`
+        """
         new_methods = [method_name for method_name in dir(self)
                        if not method_name.startswith('_') \
                        and callable(getattr(self, method_name)) \
@@ -236,9 +322,8 @@ class GPSDIfaceExtension(object):
             return (time_dt - epoch_dt).total_seconds()
         # Read responses from GPSD until we get a non-trivial mode and until next second.
         gps_time_prev = 0
-        end_time = time.time() + GPSD_GET_SENSOR_TIMEOUT
-        while time.time() < end_time:
-            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=GPSD_GET_INFO_TIMEOUT)
+        while True:
+            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=15)
             gps_mode = gps_info.get("mode", 0)
             gps_time = parse_time(gps_info.get("time", ""))
             if gps_mode == 0:
@@ -248,31 +333,23 @@ class GPSDIfaceExtension(object):
             if gps_time_prev == 0:
                 gps_time_prev = gps_time
                 continue
-            else:
-                if int(gps_time) - int(gps_time_prev) >= 1:
-                    return {
-                        'name': 'gps_time',
-                        'type': 'INTEGER',
-                        'unit': 'seconds',
-                        'value': str(int(gps_time)),
-                    }
-        raise RuntimeError("Could not get GPS time within {} seconds!"
-                           .format(GPSD_GET_SENSOR_TIMEOUT))
+            if int(gps_time) - int(gps_time_prev) >= 1:
+                return {
+                    'name': 'gps_time',
+                    'type': 'INTEGER',
+                    'unit': 'seconds',
+                    'value': str(int(gps_time)),
+                }
 
     def get_gps_tpv_sensor(self):
         """Get a TPV response from GPSd as a sensor dict"""
         self._log.trace("Polling GPS TPV results from GPSD")
         # Read responses from GPSD until we get a non-trivial mode
-        end_time = time.time() + GPSD_GET_SENSOR_TIMEOUT
-        while time.time() < end_time:
-            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=GPSD_GET_INFO_TIMEOUT)
+        while True:
+            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=15)
             self._log.trace("GPS info: {}".format(gps_info))
             if gps_info.get("mode", 0) > 0:
                 break
-        if gps_info.get("mode", 0) == 0:
-            raise RuntimeError(
-                "get_gps_tpv_sensor(): Could not get non-zero GPSd mode "
-                "within {} seconds!".format(GPSD_GET_SENSOR_TIMEOUT))
         # Return the JSON'd results
         gps_tpv = json.dumps(gps_info)
         return {
@@ -286,7 +363,7 @@ class GPSDIfaceExtension(object):
         """Get a SKY response from GPSd as a sensor dict"""
         self._log.trace("Polling GPS SKY results from GPSD")
         # Just get the first SKY result
-        gps_info = self._gpsd_iface.get_gps_info(resp_class='sky', timeout=GPSD_GET_INFO_TIMEOUT)
+        gps_info = self._gpsd_iface.get_gps_info(resp_class='sky', timeout=15)
         # Return the JSON'd results
         gps_sky = json.dumps(gps_info)
         return {
@@ -298,106 +375,26 @@ class GPSDIfaceExtension(object):
 
     def get_gps_gpgga_sensor(self):
         """Get GPGGA sensor data by parsing TPV and SKY sensor data"""
-        def _deg_to_dm(angle):
-            """Convert a latitude or longitude from degrees to degrees minutes format"""
-            fraction_int_tuple = math.modf(angle)
-            return fraction_int_tuple[1] * 100 + fraction_int_tuple[0] * 60
-
-        def _nmea_checksum(nmea_sentence):
-            """Calculate the checksum for a NMEA data sentence"""
-            checksum = 0
-            if not nmea_sentence.startswith('$'):
-                return checksum
-
-            for character in nmea_sentence[1:]:
-                checksum ^= ord(character)
-
-            return checksum
-
         self._log.trace("Polling GPS TPV and SKY results from GPSD")
         # Read responses from GPSD until we get both a SKY response and TPV
         # response in non-trivial mode
-        end_time = time.time() + GPSD_GET_SENSOR_TIMEOUT
         while True:
-            gps_info = self._gpsd_iface.get_gps_info(resp_class='', timeout=GPSD_GET_INFO_TIMEOUT)
+            gps_info = self._gpsd_iface.get_gps_info(resp_class='', timeout=15)
             self._log.trace("GPS info: {}".format(gps_info))
-            tpv_sensor_data = gps_info.get('tpv', [{}])[0]
-            sky_sensor_data = gps_info.get('sky', [{}])[0]
-            if tpv_sensor_data and sky_sensor_data and tpv_sensor_data.get("mode", 0) > 0:
-                break
-            if time.time() > end_time:
-                raise RuntimeError(
-                    "get_gps_gpgga_sensor(): Could not get non-zero GPSd mode "
-                    "within {} seconds!".format(GPSD_GET_SENSOR_TIMEOUT))
-
-        gpgga = "$GPGGA,"
-
-        if 'time' in tpv_sensor_data:
-            time_formatted = re.subn(r'\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2}):(\d{2}\.?\d*)Z',
-                                     r'\1\2\3,', tpv_sensor_data.get('time'))
-            if time_formatted[1] == 1:
-                gpgga += time_formatted[0]
-            else:
-                gpgga += ","
-        else:
-            gpgga += ","
-
-        if 'lat' in tpv_sensor_data:
-            latitude = tpv_sensor_data.get('lat')
-            latitude_direction = 'N' if latitude > 0 else 'S'
-            latitude = _deg_to_dm(abs(latitude))
-            gpgga += "{:09.4f},{},".format(latitude, latitude_direction)
-        else:
-            gpgga += "0.0,S,"
-
-        if 'lon' in tpv_sensor_data:
-            longitude = tpv_sensor_data['lon']
-            longitude_direction = 'E' if longitude > 0 else 'W'
-            longitude = _deg_to_dm(abs(longitude))
-            gpgga += "{:010.4f},{},".format(longitude, longitude_direction)
-        else:
-            gpgga += "0.0,W,"
-
-        quality = 0
-        if tpv_sensor_data['mode'] > 1:
-            if tpv_sensor_data.get('status') == 2:
-                quality = 2
-            else:
-                quality = 1
-        gpgga += "{:d},".format(quality)
-
-        if 'satellites' in sky_sensor_data:
-            satellites_used = 0
-            for satellite in sky_sensor_data['satellites']:
-                if 'used' in satellite and satellite['used']:
-                    satellites_used += 1
-            gpgga += "{:02d},".format(satellites_used)
-        else:
-            gpgga += ","
-
-        if 'hdop' in sky_sensor_data:
-            gpgga += "{:.2f},".format(sky_sensor_data['hdop'])
-        else:
-            gpgga += ","
-
-        if 'alt' in tpv_sensor_data:
-            gpgga += "{:2f},{},".format(tpv_sensor_data['alt'], 'M')
-        else:
-            gpgga += ",,"
-
-        # separation data is not present in tpv or sky sensor data
-        gpgga += ",,"
-
-        # differential data is not present
-        gpgga += ",,"
-
-        gpgga += "*{:02X}".format(_nmea_checksum(gpgga))
-
+            # Response types are 'list of dicts', but they can be empty lists so
+            # we need to prepare for that:
+            tpv_sensor_data = gps_info.get('tpv')
+            sky_sensor_data = gps_info.get('sky')
+            if tpv_sensor_data and sky_sensor_data:
+                tpv_sensor_data = tpv_sensor_data[0]
+                sky_sensor_data = sky_sensor_data[0]
+                if tpv_sensor_data.get("mode", 0) > 0:
+                    break
         return {
             'name': 'gpgga',
             'type': 'STRING',
             'unit': '',
-            'value': gpgga,
+            'value': gpgga_from_tpv_sky(tpv_sensor_data, sky_sensor_data),
         }
 
     def get_gps_lock(self):
@@ -411,16 +408,11 @@ class GPSDIfaceExtension(object):
             self._log.warning("Cannot query GPS lock, GPSd not initialized!")
             return False
         # Read responses from GPSD until we get a non-trivial mode
-        end_time = time.time() + GPSD_GET_SENSOR_TIMEOUT
         while True:
-            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=GPSD_GET_INFO_TIMEOUT)
+            gps_info = self._gpsd_iface.get_gps_info(resp_class='tpv', timeout=15)
             self._log.trace("GPS info: {}".format(gps_info))
             if gps_info.get("mode", 0) > 0:
                 break
-            if time.time() > end_time:
-                raise RuntimeError(
-                    "get_gps_lock(): Could not get non-zero GPSd mode "
-                    "within {} seconds!".format(GPSD_GET_SENSOR_TIMEOUT))
         # 2 == 2D fix, 3 == 3D fix.
         # https://gpsd.gitlab.io/gpsd/gpsd_json.html
         return gps_info.get("mode", 0) >= 2

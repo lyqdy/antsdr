@@ -35,15 +35,18 @@ class MboardRegsControl(MboardRegsCommon):
     """
     # pylint: disable=bad-whitespace
     # Motherboard registers
-    MB_CLOCK_CTRL     = 0x0018
-    MB_XADC_RB        = 0x001C
-    MB_BUS_CLK_RATE   = 0x0020
-    MB_BUS_COUNTER    = 0x0024
-    MB_GPIO_MASTER    = 0x0030
-    MB_GPIO_RADIO_SRC = 0x0034
-    MB_DBOARD_CTRL    = 0x0040
-    MB_DBOARD_STATUS  = 0x0044
-    MB_XBAR_BASEPORT  = 0x0048
+    MB_CLOCK_CTRL       = 0x0018
+    MB_XADC_RB          = 0x001C
+    MB_BUS_CLK_RATE     = 0x0020
+    MB_BUS_COUNTER      = 0x0024
+    MB_SFP_PORT_INFO    = 0x0028
+    MB_GPIO_CTRL        = 0x002C
+    MB_GPIO_MASTER      = 0x0030
+    MB_GPIO_RADIO_SRC   = 0x0034
+    MB_GPS_CTRL         = 0x0038
+    MB_GPS_STATUS       = 0x003C
+    MB_DBOARD_CTRL      = 0x0040
+    MB_DBOARD_STATUS    = 0x0044
 
     # PPS select values for MB_CLOCK_CTRL (for reading and writing)
     MB_CLOCK_CTRL_PPS_SEL_GPS = 0
@@ -52,7 +55,7 @@ class MboardRegsControl(MboardRegsCommon):
     MB_CLOCK_CTRL_PPS_SEL_INT_ALT = 1
     MB_CLOCK_CTRL_PPS_SEL_EXT = 3
     # Bitfield locations for the MB_CLOCK_CTRL register.
-    MB_CLOCK_CTRL_REF_CLK_LOCKED = 2
+    MB_CLOCK_CTRL_REF_CLK_LOCKED = 3
 
     # Bitfield locations for the MB_DBOARD_CTRL register.
     MB_DBOARD_CTRL_MIMO = 0
@@ -69,24 +72,24 @@ class MboardRegsControl(MboardRegsCommon):
     def set_fp_gpio_master(self, value):
         """set driver for front panel GPIO
         Arguments:
-            value {unsigned} -- value is a single bit bit mask of 8 pins GPIO
+            value {unsigned} -- value is a single bit bit mask of 6 pins GPIO
         """
         with self.regs:
             return self.poke32(self.MB_GPIO_MASTER, value)
 
     def get_fp_gpio_master(self):
         """get "who" is driving front panel gpio
-           The return value is a bit mask of 8 pins GPIO.
+           The return value is a bit mask of 6 pins GPIO.
            0: means the pin is driven by PL
            1: means the pin is driven by PS
         """
         with self.regs:
-            return self.peek32(self.MB_GPIO_MASTER) & 0xfff
+            return self.peek32(self.MB_GPIO_MASTER) & 0xff
 
     def set_fp_gpio_radio_src(self, value):
         """set driver for front panel GPIO
         Arguments:
-            value {unsigned} -- value is 2-bit bit mask of 8 pins GPIO
+            value {unsigned} -- value is 2-bit bit mask of 6 pins GPIO
            00: means the pin is driven by radio 0
            01: means the pin is driven by radio 1
         """
@@ -95,12 +98,12 @@ class MboardRegsControl(MboardRegsCommon):
 
     def get_fp_gpio_radio_src(self):
         """get which radio is driving front panel gpio
-           The return value is 2-bit bit mask of 8 pins GPIO.
+           The return value is 2-bit bit mask of 6 pins GPIO.
            00: means the pin is driven by radio 0
            01: means the pin is driven by radio 1
         """
         with self.regs:
-            return self.peek32(self.MB_GPIO_RADIO_SRC) & 0xffffff
+            return self.peek32(self.MB_GPIO_RADIO_SRC) & 0xfff
 
     def set_time_source(self, time_source):
         """
@@ -111,10 +114,10 @@ class MboardRegsControl(MboardRegsCommon):
             self.log.trace("Setting time source to internal")
             pps_sel_val = self.MB_CLOCK_CTRL_PPS_SEL_INT
         elif time_source == 'gpsdo':
-            self.log.debug("Setting time source to gpsdo...")
+            self.log.trace("Setting time source to gpsdo...")
             pps_sel_val = self.MB_CLOCK_CTRL_PPS_SEL_GPS
         elif time_source == 'external':
-            self.log.debug("Setting time source to external...")
+            self.log.trace("Setting time source to external...")
             pps_sel_val = self.MB_CLOCK_CTRL_PPS_SEL_EXT
         else:
             assert False, "Cannot set to invalid time source: {}".format(time_source)
@@ -190,8 +193,3 @@ class MboardRegsControl(MboardRegsCommon):
         else:
             self.log.trace("RX RF PLL locked")
         return locked
-
-    def get_xbar_baseport(self):
-        "Get the RFNoC crossbar base port"
-        with self.regs:
-            return self.peek32(self.MB_XBAR_BASEPORT)

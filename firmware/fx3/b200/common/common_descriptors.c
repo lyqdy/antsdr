@@ -118,22 +118,6 @@ const unsigned char common_ettus_manufacturer_desc[] =
     'L',0x00,
     'C',0x00
 };
-//const unsigned char common_ettus_manufacturer_desc[] =
-//    {
-//        0x18,                           /* Descriptor Size */
-//        0x03,/* CY_U3P_USB_STRING_DESCR    Device Descriptor Type */
-//        'M',0x00,
-//        'i',0x00,
-//        'c',0x00,
-//        'r',0x00,
-//        'o',0x00,
-//        ' ',0x00,
-//        'p',0x00,
-//        'h',0x00,
-//        'a',0x00,
-//        's',0x00,
-//        'e',0x00,
-//};
 
 /* NI Manufacturer String Descriptor */
 const unsigned char common_ni_manufacturer_desc[] =
@@ -172,35 +156,18 @@ const unsigned char common_ni_manufacturer_desc[] =
 /* Ettus Product String Descriptor */
 const unsigned char common_b200_product_desc[] =
 {
-    0x18,                           /* Descriptor Size */
+    0x14,                           /* Descriptor Size */
     0x03,/* CY_U3P_USB_STRING_DESCR    Device Descriptor Type */
-    'A',0x00,
-    'N',0x00,
-    'T',0x00,
-    'S',0x00,
-    'D',0x00,
-    'R',0x00,
-    ' ',0x00,
     'U',0x00,
-    '2',0x00,
+    'S',0x00,
+    'R',0x00,
+    'P',0x00,
+    ' ',0x00,
+    'B',0x00,
     '2',0x00,
     '0',0x00,
+    '0',0x00
 };
-
-//const unsigned char common_b200_product_desc[] =
-//    {
-//        0x14,                           /* Descriptor Size */
-//        0x03,/* CY_U3P_USB_STRING_DESCR    Device Descriptor Type */
-//        'U',0x00,
-//        'S',0x00,
-//        'R',0x00,
-//        'P',0x00,
-//        ' ',0x00,
-//        'B ',0x00,
-//        '2',0x00,
-//        '0',0x00,
-//        '0',0x00,
-//};
 
 /* NI-USRP 2900 Product String Descriptor */
 const unsigned char common_niusrp_2900_product_desc[] =

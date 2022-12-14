@@ -8,19 +8,20 @@
 #pragma once
 
 #include <mpm/ad9361/ad9361_ctrl.hpp>
-#include <mpm/types/lockable.hpp>
 #include <mpm/types/regs_iface.hpp>
-#include <boost/shared_ptr.hpp>
 #include <memory>
 #include <mutex>
 
 namespace mpm { namespace dboards {
+
+/*! Container for the E310s AD9361 access
+ */
 class e31x_db_manager
 {
 public:
     e31x_db_manager(const std::string& catalina_spidev);
 
-    /*! Return a reference to the radio chip controls
+    /*! Return a reference to the RFIC controls
      */
     mpm::chips::ad9361_ctrl::sptr get_radio_ctrl()
     {

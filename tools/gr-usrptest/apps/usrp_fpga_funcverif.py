@@ -461,7 +461,7 @@ FUNCVERIF_SETTINGS = {
 
             {'--rx_rate': 1.25e6,   '--tx_rate': 1.25e6,   'master_clock_rate': '125e6',    '--channels': '0,1',},
             {'--rx_rate': 1.2288e6, '--tx_rate': 1.2288e6, 'master_clock_rate': '122.88e6', '--channels': '0,1',},
-            {'--rx_rate': 1.536e6,    '--tx_rate': 1.536e6,  'master_clock_rate': '153.6e6',  '--channels': '0,1',},
+            {'--rx_rate': 1.536e6,    '--tx_rate': 1.536,  'master_clock_rate': '153.6e6',  '--channels': '0,1',},
 
             {'--rx_rate': 62.5e6,  '--tx_rate': 62.5e6,  'master_clock_rate': '125e6',    '--channels': '0,1',},
             {'--rx_rate': 61.44e6, '--tx_rate': 61.44e6, 'master_clock_rate': '122.88e6', '--channels': '0,1',},
@@ -694,8 +694,8 @@ FUNCVERIF_SETTINGS = {
             {'--rx_rate': 184.32e6,  'master_clock_rate': '184.32e6', '--channels': '0,1'},
         ],
     },
-	'x3x0_dpdk': {
-		'--args': "type=x300,addr={addr},second_addr={second_addr},master_clock_rate={master_clock_rate},{args}",
+    'x3x0_dpdk': {
+        '--args': "type=x300,addr={addr},second_addr={second_addr},master_clock_rate={master_clock_rate},{args}",
         '--seq-threshold': 0,
         '--drop-threshold': 0,
         '--underrun-threshold': 100,

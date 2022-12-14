@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 install(FILES
-    xbar_iface.hpp
     exception.hpp
     DESTINATION ${INCLUDE_DIR}/mpm
 )
@@ -19,3 +18,7 @@ add_subdirectory(chips)
 add_subdirectory(dboards)
 add_subdirectory(spi)
 add_subdirectory(types)
+
+if(ENABLE_X400)
+  add_subdirectory(rfdc)
+endif(ENABLE_X400)

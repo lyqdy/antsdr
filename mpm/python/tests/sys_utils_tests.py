@@ -9,6 +9,7 @@ Tests related to usrp_mpm.sys_utils
 
 from base_tests import TestBase
 import unittest
+import test_utilities
 from usrp_mpm.sys_utils import net
 import platform
 
@@ -61,6 +62,11 @@ class TestNet(TestBase):
         """
         if self.device_name == 'n3xx':
             possible_ifaces = ['eth0', 'sfp0', 'sfp1']
+        elif self.device_name == 'x4xx':
+            # x4xx devices have an internal network interface
+            # TODO: change this when sfp0 is enabled
+            # possible_ifaces = ['eth0', 'sfp0', 'int0']
+            possible_ifaces = ['eth0', 'int0']
         else:
             possible_ifaces = ['eth0', 'sfp0']
 
