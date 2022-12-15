@@ -5,9 +5,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-#include "b200_cores.hpp"
-#include "b200_impl.hpp"
-#include "b200_regs.hpp"
+#include "ant_cores.hpp"
+#include "ant_impl.hpp"
+#include "ant_regs.hpp"
 #include <mutex>
 
 b200_local_spi_core::b200_local_spi_core(uhd::wb_iface::sptr iface, perif_t default_perif)
@@ -36,10 +36,10 @@ void b200_local_spi_core::change_perif(perif_t perif)
 
     switch (_current_perif) {
         case CODEC:
-            _spi_core->set_divider(B200_BUS_CLOCK_RATE / AD9361_SPI_RATE);
+            _spi_core->set_divider(ANT_BUS_CLOCK_RATE / AD9361_SPI_RATE);
             break;
         case PLL:
-            _spi_core->set_divider(B200_BUS_CLOCK_RATE / ADF4001_SPI_RATE);
+            _spi_core->set_divider(ANT_BUS_CLOCK_RATE / ADF4001_SPI_RATE);
             break;
     }
 }

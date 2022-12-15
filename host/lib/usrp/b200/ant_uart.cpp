@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-#include "b200_uart.hpp"
-#include "b200_impl.hpp"
+#include "ant_uart.hpp"
+#include "ant_impl.hpp"
 #include <uhd/exception.hpp>
 #include <uhd/transport/bounded_buffer.hpp>
 #include <uhd/transport/vrt_if_packet.hpp>
@@ -17,13 +17,13 @@
 using namespace uhd;
 using namespace uhd::transport;
 
-struct b200_uart_impl : b200_uart
+struct b200_uart_impl : ant_uart
 {
     b200_uart_impl(zero_copy_if::sptr xport, const uint32_t sid)
         : _xport(xport)
         , _sid(sid)
         , _count(0)
-        , _baud_div(std::floor(B200_BUS_CLOCK_RATE / 115200 + 0.5))
+        , _baud_div(std::floor(ANT_BUS_CLOCK_RATE / 115200 + 0.5))
         , _line_queue(4096)
     {
         /*NOP*/
@@ -95,7 +95,7 @@ struct b200_uart_impl : b200_uart
 };
 
 
-b200_uart::sptr b200_uart::make(zero_copy_if::sptr xport, const uint32_t sid)
+ant_uart::sptr ant_uart::make(zero_copy_if::sptr xport, const uint32_t sid)
 {
-    return b200_uart::sptr(new b200_uart_impl(xport, sid));
+    return ant_uart::sptr(new b200_uart_impl(xport, sid));
 }

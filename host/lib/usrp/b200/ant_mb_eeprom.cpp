@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-#include "b200_impl.hpp"
+#include "ant_impl.hpp"
 #include <uhd/usrp/mboard_eeprom.hpp>
 #include <uhdlib/utils/eeprom_utils.hpp>
 #include <unordered_map>
@@ -93,7 +93,7 @@ byte_vector_t _get_eeprom(uhd::i2c_iface::sptr iface)
 
 } // namespace
 
-mboard_eeprom_t b200_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
+mboard_eeprom_t ant_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
 {
     auto rev   = _get_rev(iface);
     auto bytes = _get_eeprom(iface);
@@ -134,7 +134,7 @@ mboard_eeprom_t b200_impl::get_mb_eeprom(uhd::i2c_iface::sptr iface)
     return mb_eeprom;
 }
 
-void b200_impl::set_mb_eeprom(const mboard_eeprom_t& mb_eeprom)
+void ant_impl::set_mb_eeprom(const mboard_eeprom_t& mb_eeprom)
 {
     const auto rev  = _get_rev(_iface);
     auto eeprom_map = (rev == 0) ? B200_REV0_MAP : B200_REV1_MAP;

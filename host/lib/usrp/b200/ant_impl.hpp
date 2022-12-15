@@ -8,9 +8,9 @@
 #ifndef INCLUDED_B200_IMPL_HPP
 #define INCLUDED_B200_IMPL_HPP
 
-#include "b200_cores.hpp"
-#include "b200_iface.hpp"
-#include "b200_uart.hpp"
+#include "ant_cores.hpp"
+#include "ant_iface.hpp"
+#include "ant_uart.hpp"
 #include <uhd/device.hpp>
 #include <uhd/property_tree.hpp>
 #include <uhd/transport/bounded_buffer.hpp>
@@ -83,81 +83,44 @@ typedef struct {
     uint8_t serial_all[32];
 } microphase_ant_ctrl_data_t;
 
-static const uint8_t B200_FW_COMPAT_NUM_MAJOR = 8;
-static const uint8_t B200_FW_COMPAT_NUM_MINOR = 0;
+static const uint8_t ANT_FW_COMPAT_NUM_MAJOR = 8;
+static const uint8_t ANT_FW_COMPAT_NUM_MINOR = 0;
 static const uint16_t B200_FPGA_COMPAT_NUM    = 16;
 static const uint16_t B205_FPGA_COMPAT_NUM    = 7;
-static const double B200_BUS_CLOCK_RATE       = 100e6;
-static const uint32_t B200_GPSDO_ST_NONE      = 0x83;
-static constexpr double B200_MAX_RATE_USB2    = 53248000; // bytes/s
-static constexpr double B200_MAX_RATE_USB3    = 500000000; // bytes/s
+static const double ANT_BUS_CLOCK_RATE       = 100e6;
+static const uint32_t ANT_GPSDO_ST_NONE      = 0x83;
 
 #define FLIP_SID(sid) (((sid) << 16) | ((sid) >> 16))
 
-static const uint32_t B200_CTRL0_MSG_SID = 0x00000010;
-static const uint32_t B200_RESP0_MSG_SID = FLIP_SID(B200_CTRL0_MSG_SID);
+static const uint32_t ANT_CTRL0_MSG_SID = 0x00000010;
+static const uint32_t ANT_RESP0_MSG_SID = FLIP_SID(ANT_CTRL0_MSG_SID);
 
-static const uint32_t B200_CTRL1_MSG_SID = 0x00000020;
-static const uint32_t B200_RESP1_MSG_SID = FLIP_SID(B200_CTRL1_MSG_SID);
+static const uint32_t ANT_CTRL1_MSG_SID = 0x00000020;
+static const uint32_t ANT_RESP1_MSG_SID = FLIP_SID(ANT_CTRL1_MSG_SID);
 
-static const uint32_t B200_TX_DATA0_SID = 0x00000050;
-static const uint32_t B200_TX_MSG0_SID  = FLIP_SID(B200_TX_DATA0_SID);
+static const uint32_t ANT_TX_DATA0_SID = 0x00000050;
+static const uint32_t ANT_TX_MSG0_SID  = FLIP_SID(ANT_TX_DATA0_SID);
 
-static const uint32_t B200_TX_DATA1_SID = 0x00000060;
-static const uint32_t B200_TX_MSG1_SID  = FLIP_SID(B200_TX_DATA1_SID);
+static const uint32_t ANT_TX_DATA1_SID = 0x00000060;
+static const uint32_t ANT_TX_MSG1_SID  = FLIP_SID(ANT_TX_DATA1_SID);
 
-static const uint32_t B200_RX_DATA0_SID = 0x000000A0;
-static const uint32_t B200_RX_DATA1_SID = 0x000000B0;
+static const uint32_t ANT_RX_DATA0_SID = 0x000000A0;
+static const uint32_t ANT_RX_DATA1_SID = 0x000000B0;
 
-static const uint32_t B200_TX_GPS_UART_SID = 0x00000030;
-static const uint32_t B200_RX_GPS_UART_SID = FLIP_SID(B200_TX_GPS_UART_SID);
+static const uint32_t ANT_TX_GPS_UART_SID = 0x00000030;
+static const uint32_t ANT_RX_GPS_UART_SID = FLIP_SID(ANT_TX_GPS_UART_SID);
 
-static const uint32_t B200_LOCAL_CTRL_SID = 0x00000040;
-static const uint32_t B200_LOCAL_RESP_SID = FLIP_SID(B200_LOCAL_CTRL_SID);
+static const uint32_t ANT_LOCAL_CTRL_SID = 0x00000040;
+static const uint32_t ANT_LOCAL_RESP_SID = FLIP_SID(ANT_LOCAL_CTRL_SID);
 
-static const unsigned char B200_USB_CTRL_RECV_INTERFACE = 4;
-static const unsigned char B200_USB_CTRL_RECV_ENDPOINT  = 8;
-static const unsigned char B200_USB_CTRL_SEND_INTERFACE = 3;
-static const unsigned char B200_USB_CTRL_SEND_ENDPOINT  = 4;
-
-static const unsigned char B200_USB_DATA_RECV_INTERFACE = 2;
-static const unsigned char B200_USB_DATA_RECV_ENDPOINT  = 6;
-static const unsigned char B200_USB_DATA_SEND_INTERFACE = 1;
-static const unsigned char B200_USB_DATA_SEND_ENDPOINT  = 2;
-
-// Default recv_frame_size. Must not be a multiple of 512.
-static const int B200_USB_DATA_DEFAULT_FRAME_SIZE = 8176;
-// recv_frame_size values below this will be upped to this value
-static const int B200_USB_DATA_MIN_RECV_FRAME_SIZE = 40;
-static const int B200_USB_DATA_MAX_RECV_FRAME_SIZE = 16360;
-
-/*
- * VID/PID pairs for all B2xx products
- */
-static std::vector<uhd::transport::usb_device_handle::vid_pid_pair_t> b200_vid_pid_pairs =
-    boost::assign::list_of(uhd::transport::usb_device_handle::vid_pid_pair_t(
-        B200_VENDOR_ID, B200_PRODUCT_ID))(
-        uhd::transport::usb_device_handle::vid_pid_pair_t(
-            B200_VENDOR_ID, B200MINI_PRODUCT_ID))(
-        uhd::transport::usb_device_handle::vid_pid_pair_t(
-            B200_VENDOR_ID, B205MINI_PRODUCT_ID))(
-        uhd::transport::usb_device_handle::vid_pid_pair_t(
-            B200_VENDOR_NI_ID, B200_PRODUCT_NI_ID))(
-        uhd::transport::usb_device_handle::vid_pid_pair_t(
-            B200_VENDOR_NI_ID, B210_PRODUCT_NI_ID));
-
-b200_product_t get_b200_product(const uhd::transport::usb_device_handle::sptr& handle,
-    const uhd::usrp::mboard_eeprom_t& mb_eeprom);
-std::vector<uhd::transport::usb_device_handle::sptr> get_b200_device_handles(
-    const uhd::device_addr_t& hint);
 
 //! Implementation guts
-class b200_impl : public uhd::device
+class ant_impl : public uhd::device
 {
 public:
     // structors
-    b200_impl(const uhd::device_addr_t&, uhd::transport::usb_device_handle::sptr& handle);
-    ~b200_impl(void) override;
+    ant_impl(const uhd::device_addr_t&, uhd::transport::usb_device_handle::sptr& handle);
+    ~ant_impl(void) override;
 
     // the io interface
     uhd::rx_streamer::sptr get_rx_stream(const uhd::stream_args_t& args) override;
@@ -186,7 +149,7 @@ private:
     const bool _enable_user_regs;
 
     // controllers
-    b200_iface::sptr _iface;
+    ant_iface::sptr _iface;
     radio_ctrl_core_3000::sptr _local_ctrl;
     uhd::usrp::ad9361_ctrl::sptr _codec_ctrl;
     uhd::usrp::ad936x_manager::sptr _codec_mgr;
@@ -215,7 +178,7 @@ private:
         std::shared_ptr<async_md_type> async_md;
         std::weak_ptr<radio_ctrl_core_3000> local_ctrl;
         std::weak_ptr<radio_ctrl_core_3000> radio_ctrl[2];
-        b200_uart::sptr gpsdo_uart;
+        ant_uart::sptr gpsdo_uart;
     };
     std::shared_ptr<AsyncTaskData> _async_task_data;
     boost::optional<uhd::msg_task::msg_type_t> handle_async_task(
@@ -223,7 +186,6 @@ private:
 
     void register_loopback_self_test(uhd::wb_iface::sptr iface);
     void set_mb_eeprom(const uhd::usrp::mboard_eeprom_t&);
-    void check_fw_compat(void);
     void check_fpga_compat(void);
     uhd::usrp::subdev_spec_t coerce_subdev_spec(const uhd::usrp::subdev_spec_t&);
     void update_subdev_spec(const std::string& tx_rx, const uhd::usrp::subdev_spec_t&);

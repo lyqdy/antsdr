@@ -7,8 +7,8 @@
 
 #include "../../transport/super_recv_packet_handler.hpp"
 #include "../../transport/super_send_packet_handler.hpp"
-#include "b200_impl.hpp"
-#include "b200_regs.hpp"
+#include "ant_impl.hpp"
+#include "ant_regs.hpp"
 #include <uhd/utils/math.hpp>
 #include <uhdlib/usrp/common/async_packet_handler.hpp>
 #include <uhdlib/usrp/common/validate_subdev_spec.hpp>
@@ -23,15 +23,15 @@ using namespace uhd::transport;
 /***********************************************************************
  * update streamer rates
  **********************************************************************/
-void b200_impl::check_tick_rate_with_current_streamers(double rate)
+void ant_impl::check_tick_rate_with_current_streamers(double rate)
 {
-    // Defined in b200_impl.cpp
+    // Defined in ant_impl.cpp
     enforce_tick_rate_limits(max_chan_count("RX"), rate, "RX");
     enforce_tick_rate_limits(max_chan_count("TX"), rate, "TX");
 }
 
 // direction can either be "TX", "RX", or empty (default)
-size_t b200_impl::max_chan_count(const std::string& direction /* = "" */)
+size_t ant_impl::max_chan_count(const std::string& direction /* = "" */)
 {
     size_t max_count = 0;
     for (radio_perifs_t& perif : _radio_perifs) {
@@ -53,9 +53,9 @@ size_t b200_impl::max_chan_count(const std::string& direction /* = "" */)
     return max_count;
 }
 
-void b200_impl::check_streamer_args(const uhd::stream_args_t& args,
-    double tick_rate,
-    const std::string& direction /*= ""*/)
+void ant_impl::check_streamer_args(const uhd::stream_args_t& args,
+                                   double tick_rate,
+                                   const std::string& direction /*= ""*/)
 {
     std::set<size_t> chans_set;
     for (size_t stream_i = 0; stream_i < args.channels.size(); stream_i++) {
@@ -64,10 +64,10 @@ void b200_impl::check_streamer_args(const uhd::stream_args_t& args,
     }
 
     enforce_tick_rate_limits(
-        chans_set.size(), tick_rate, direction); // Defined in b200_impl.cpp
+        chans_set.size(), tick_rate, direction); // Defined in ant_impl.cpp
 }
 
-void b200_impl::set_auto_tick_rate(
+void ant_impl::set_auto_tick_rate(
     const double rate, const fs_path& tree_dsp_path, size_t num_chans)
 {
     if (num_chans == 0) { // Divine them
@@ -83,7 +83,7 @@ void b200_impl::set_auto_tick_rate(
                                    % (rate / 1e6) % (max_tick_rate / 1e6)));
     }
 
-    // See also the doxygen documentation for these steps in b200_impl.hpp
+    // See also the doxygen documentation for these steps in ant_impl.hpp
     // Step 1: Obtain LCM and max rate from all relevant dsps
     uint32_t lcm_rate = (rate == 0) ? 1 : static_cast<uint32_t>(floor(rate + 0.5));
     for (int i = 0; i < 2; i++) { // Loop through rx and tx
@@ -129,7 +129,7 @@ void b200_impl::set_auto_tick_rate(
             _tree->access<double>("/mboards/0/tick_rate").set(new_rate);
         }
     } catch (const uhd::value_error&) {
-        UHD_LOGGER_WARNING("B200") << "Cannot automatically determine an appropriate "
+        UHD_LOGGER_WARNING("ANT") << "Cannot automatically determine an appropriate "
                                       "tick rate for these sampling rates."
                                    << "Consider using different sampling rates, or "
                                       "manually specify a suitable master clock rate.";
@@ -137,7 +137,7 @@ void b200_impl::set_auto_tick_rate(
     }
 }
 
-void b200_impl::update_tick_rate(const double new_tick_rate)
+void ant_impl::update_tick_rate(const double new_tick_rate)
 {
     check_tick_rate_with_current_streamers(new_tick_rate);
 
@@ -158,7 +158,7 @@ void b200_impl::update_tick_rate(const double new_tick_rate)
     }
 }
 
-void b200_impl::update_rx_dsp_tick_rate(
+void ant_impl::update_rx_dsp_tick_rate(
     const double tick_rate, rx_dsp_core_3000::sptr ddc, uhd::fs_path rx_dsp_path)
 {
     ddc->set_tick_rate(tick_rate);
@@ -167,7 +167,7 @@ void b200_impl::update_rx_dsp_tick_rate(
     }
 }
 
-void b200_impl::update_tx_dsp_tick_rate(
+void ant_impl::update_tx_dsp_tick_rate(
     const double tick_rate, tx_dsp_core_3000::sptr duc, uhd::fs_path tx_dsp_path)
 {
     duc->set_tick_rate(tick_rate);
@@ -188,7 +188,7 @@ void b200_impl::update_tx_dsp_tick_rate(
                 % (rate / 1e6)));                                                     \
     }
 
-double b200_impl::coerce_rx_samp_rate(
+double ant_impl::coerce_rx_samp_rate(
     rx_dsp_core_3000::sptr ddc, size_t dspno, const double rx_rate)
 {
     // Have to set tick rate first, or the ddc will change the requested rate based on
@@ -202,7 +202,7 @@ double b200_impl::coerce_rx_samp_rate(
     return ddc->set_host_rate(rx_rate);
 }
 
-void b200_impl::update_rx_samp_rate(const size_t dspno, const double rate)
+void ant_impl::update_rx_samp_rate(const size_t dspno, const double rate)
 {
     std::shared_ptr<sph::recv_packet_streamer> my_streamer =
         std::dynamic_pointer_cast<sph::recv_packet_streamer>(
@@ -215,7 +215,7 @@ void b200_impl::update_rx_samp_rate(const size_t dspno, const double rate)
     _codec_mgr->check_bandwidth(rate, "Rx");
 }
 
-double b200_impl::coerce_tx_samp_rate(
+double ant_impl::coerce_tx_samp_rate(
     tx_dsp_core_3000::sptr duc, size_t dspno, const double tx_rate)
 {
     // Have to set tick rate first, or the duc will change the requested rate based on
@@ -229,7 +229,7 @@ double b200_impl::coerce_tx_samp_rate(
     return duc->set_host_rate(tx_rate);
 }
 
-void b200_impl::update_tx_samp_rate(const size_t dspno, const double rate)
+void ant_impl::update_tx_samp_rate(const size_t dspno, const double rate)
 {
     std::shared_ptr<sph::send_packet_streamer> my_streamer =
         std::dynamic_pointer_cast<sph::send_packet_streamer>(
@@ -245,11 +245,11 @@ void b200_impl::update_tx_samp_rate(const size_t dspno, const double rate)
 /***********************************************************************
  * frontend selection
  **********************************************************************/
-uhd::usrp::subdev_spec_t b200_impl::coerce_subdev_spec(
+uhd::usrp::subdev_spec_t ant_impl::coerce_subdev_spec(
     const uhd::usrp::subdev_spec_t& spec_)
 {
     uhd::usrp::subdev_spec_t spec = spec_;
-    // Because of the confusing nature of the subdevs on B200
+    // Because of the confusing nature of the subdevs on ANT
     // with different revs, we provide a convenience override,
     // where both A:A and A:B are mapped to A:A.
     //
@@ -263,7 +263,7 @@ uhd::usrp::subdev_spec_t b200_impl::coerce_subdev_spec(
     return spec;
 }
 
-void b200_impl::update_subdev_spec(
+void ant_impl::update_subdev_spec(
     const std::string& tx_rx, const uhd::usrp::subdev_spec_t& spec)
 {
     // sanity checking
@@ -298,7 +298,7 @@ static void b200_if_hdr_pack_le(
 /***********************************************************************
  * Async Data
  **********************************************************************/
-bool b200_impl::recv_async_msg(async_metadata_t& async_metadata, double timeout)
+bool ant_impl::recv_async_msg(async_metadata_t& async_metadata, double timeout)
 {
     return _async_task_data->async_md->pop_with_timed_wait(async_metadata, timeout);
 }
@@ -314,7 +314,7 @@ bool b200_impl::recv_async_msg(async_metadata_t& async_metadata, double timeout)
  * a dump_queue implemented in msg_task. A radio_ctrl_core can search for missing messages
  * there.
  */
-boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
+boost::optional<uhd::msg_task::msg_type_t> ant_impl::handle_async_task(
     uhd::transport::zero_copy_if::sptr xport, std::shared_ptr<AsyncTaskData> data)
 {
     managed_recv_buffer::sptr buff = xport->get_recv_buff();
@@ -324,15 +324,15 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
     const uint32_t sid = uhd::wtohx(buff->cast<const uint32_t*>()[1]);
     switch (sid) {
         // if the packet is a control response
-        case B200_RESP0_MSG_SID:
-        case B200_RESP1_MSG_SID:
-        case B200_LOCAL_RESP_SID: {
+        case ANT_RESP0_MSG_SID:
+        case ANT_RESP1_MSG_SID:
+        case ANT_LOCAL_RESP_SID: {
             radio_ctrl_core_3000::sptr ctrl;
-            if (sid == B200_RESP0_MSG_SID)
+            if (sid == ANT_RESP0_MSG_SID)
                 ctrl = data->radio_ctrl[0].lock();
-            if (sid == B200_RESP1_MSG_SID)
+            if (sid == ANT_RESP1_MSG_SID)
                 ctrl = data->radio_ctrl[1].lock();
-            if (sid == B200_LOCAL_RESP_SID)
+            if (sid == ANT_LOCAL_RESP_SID)
                 ctrl = data->local_ctrl.lock();
             if (ctrl) {
                 ctrl->push_response(buff->cast<const uint32_t*>());
@@ -344,15 +344,15 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
         }
 
         // if the packet is a uart message
-        case B200_RX_GPS_UART_SID: {
+        case ANT_RX_GPS_UART_SID: {
             data->gpsdo_uart->handle_uart_packet(buff);
             break;
         }
 
         // or maybe the packet is a TX async message
-        case B200_TX_MSG0_SID:
-        case B200_TX_MSG1_SID: {
-            const size_t i = (sid == B200_TX_MSG0_SID) ? 0 : 1;
+        case ANT_TX_MSG0_SID:
+        case ANT_TX_MSG1_SID: {
+            const size_t i = (sid == ANT_TX_MSG0_SID) ? 0 : 1;
 
             // extract packet info
             vrt::if_packet_info_t if_packet_info;
@@ -363,7 +363,7 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
             try {
                 b200_if_hdr_unpack_le(packet_buff, if_packet_info);
             } catch (const std::exception& ex) {
-                UHD_LOGGER_ERROR("B200") << "Error parsing ctrl packet: " << ex.what();
+                UHD_LOGGER_ERROR("ANT") << "Error parsing ctrl packet: " << ex.what();
                 break;
             }
 
@@ -382,7 +382,7 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
 
         // doh!
         default:
-            UHD_LOGGER_ERROR("B200") << "Got a ctrl packet with unknown SID " << sid;
+            UHD_LOGGER_ERROR("ANT") << "Got a ctrl packet with unknown SID " << sid;
     }
     return boost::none;
 }
@@ -390,7 +390,7 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
 /***********************************************************************
  * Receive streamer
  **********************************************************************/
-rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
+rx_streamer::sptr ant_impl::get_rx_stream(const uhd::stream_args_t& args_)
 {
     std::lock_guard<std::mutex> lock(_transport_setup_mutex);
 
@@ -421,7 +421,7 @@ rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
             perif.ctrl->poke32(TOREG(SR_RX_FMT), 2);
         if (args.otw_format == "sc8")
             perif.ctrl->poke32(TOREG(SR_RX_FMT), 3);
-        const uint32_t sid = radio_index ? B200_RX_DATA1_SID : B200_RX_DATA0_SID;
+        const uint32_t sid = radio_index ? ANT_RX_DATA1_SID : ANT_RX_DATA0_SID;
 
         // calculate packet size
         static const size_t hdr_size =
@@ -465,7 +465,7 @@ rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
                 std::placeholders::_1),
             true /*flush*/);
         my_streamer->set_overflow_handler(
-            stream_i, std::bind(&b200_impl::handle_overflow, this, radio_index));
+            stream_i, std::bind(&ant_impl::handle_overflow, this, radio_index));
         my_streamer->set_issue_stream_cmd(stream_i,
             std::bind(&rx_vita_core_3000::issue_stream_command,
                 perif.framer,
@@ -484,7 +484,7 @@ rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
     return my_streamer;
 }
 
-void b200_impl::handle_overflow(const size_t radio_index)
+void ant_impl::handle_overflow(const size_t radio_index)
 {
     std::shared_ptr<sph::recv_packet_streamer> my_streamer =
         std::dynamic_pointer_cast<sph::recv_packet_streamer>(
@@ -497,8 +497,8 @@ void b200_impl::handle_overflow(const size_t radio_index)
         // stop streaming
         my_streamer->issue_stream_cmd(stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
         // flush demux
-        _demux->realloc_sid(B200_RX_DATA0_SID);
-        _demux->realloc_sid(B200_RX_DATA1_SID);
+        _demux->realloc_sid(ANT_RX_DATA0_SID);
+        _demux->realloc_sid(ANT_RX_DATA1_SID);
         // flush actual transport
         while (_data_rx_transport->get_recv_buff(0.001)) {
 
@@ -525,7 +525,7 @@ void b200_impl::handle_overflow(const size_t radio_index)
 /***********************************************************************
  * Transmit streamer
  **********************************************************************/
-tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
+tx_streamer::sptr ant_impl::get_tx_stream(const uhd::stream_args_t& args_)
 {
     std::lock_guard<std::mutex> lock(_transport_setup_mutex);
 
@@ -606,15 +606,15 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
             fc_cache->old_async_queue = _async_task_data->async_md;
 
             tick_rate_retriever_t get_tick_rate_fn =
-                    boost::bind(&b200_impl::get_tick_rate, this);
+                    boost::bind(&ant_impl::get_tick_rate, this);
             task::sptr task =
-                    task::make(boost::bind(&b200_impl::_handle_tx_async_msgs,
+                    task::make(boost::bind(&ant_impl::_handle_tx_async_msgs,
                                            fc_cache,
                                            _data_tx_transport,
                                            get_tick_rate_fn));
 
             my_streamer->set_xport_chan_get_buff(stream_i,
-                                                 boost::bind(&b200_impl::_get_tx_buff_with_flowctrl,
+                                                 boost::bind(&ant_impl::_get_tx_buff_with_flowctrl,
                                                              task,
                                                              fc_cache,
                                                              _data_tx_transport,
@@ -626,7 +626,7 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         my_streamer->set_async_receiver(boost::bind(
                 &async_md_type::pop_with_timed_wait, _async_task_data->async_md, _1, _2));
         my_streamer->set_xport_chan_sid(
-                stream_i, true, radio_index ? B200_TX_DATA1_SID : B200_TX_DATA0_SID);
+                stream_i, true, radio_index ? ANT_TX_DATA1_SID : ANT_TX_DATA0_SID);
         my_streamer->set_enable_trailer(false); // TODO not implemented trailer support
         // yet
         perif.tx_streamer = my_streamer; // store weak pointer
@@ -643,7 +643,7 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
 }
 
 /* Microphase for ant */
-size_t b200_impl::_get_tx_flow_control_window(size_t payload_size, size_t hw_buff_size) {
+size_t ant_impl::_get_tx_flow_control_window(size_t payload_size, size_t hw_buff_size) {
     size_t window_in_pkts = hw_buff_size / payload_size;
     if (window_in_pkts == 0) {
         throw uhd::value_error("send_buff_size must be larger than the send_frame_size.");
@@ -651,8 +651,8 @@ size_t b200_impl::_get_tx_flow_control_window(size_t payload_size, size_t hw_buf
     return window_in_pkts;
 }
 
-void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
-                                      uhd::transport::zero_copy_if::sptr xport, tick_rate_retriever_t get_tick_rate) {
+void ant_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                     uhd::transport::zero_copy_if::sptr xport, tick_rate_retriever_t get_tick_rate) {
     managed_recv_buffer::sptr buff = xport->get_recv_buff();
     if(not buff)
         return;
@@ -680,11 +680,11 @@ void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
     standard_async_msg_prints(metadata);
 }
 
-uhd::transport::managed_send_buffer::sptr b200_impl::_get_tx_buff_with_flowctrl(uhd::task::sptr,
-                                                                                boost::shared_ptr<tx_fc_cache_t> fc_cache,
-                                                                                uhd::transport::zero_copy_if::sptr xport,
-                                                                                size_t fc_pkt_window,
-                                                                                const double timeout) {
+uhd::transport::managed_send_buffer::sptr ant_impl::_get_tx_buff_with_flowctrl(uhd::task::sptr,
+                                                                               boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                                                               uhd::transport::zero_copy_if::sptr xport,
+                                                                               size_t fc_pkt_window,
+                                                                               const double timeout) {
     while (true) {
         const size_t delta = (fc_cache->last_seq_out & 0xFFF)
                              - (fc_cache->last_seq_ack & 0xFFF);

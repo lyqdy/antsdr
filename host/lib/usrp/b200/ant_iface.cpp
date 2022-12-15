@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-#include "b200_iface.hpp"
+#include "ant_iface.hpp"
 #include <uhd/config.hpp>
 #include <uhd/exception.hpp>
 #include <uhd/utils/log.hpp>
@@ -121,7 +121,7 @@ static hash_type generate_hash(const char* filename)
 /***********************************************************************
  * The implementation class
  **********************************************************************/
-class b200_iface_impl : public b200_iface
+class b200_iface_impl : public ant_iface
 {
 public:
     b200_iface_impl(usb_control::sptr usb_ctrl) : _usb_ctrl(usb_ctrl)
@@ -785,7 +785,7 @@ private:
 };
 
 
-std::string b200_iface::fx3_state_string(uint8_t state)
+std::string ant_iface::fx3_state_string(uint8_t state)
 {
     switch (state) {
         case FX3_STATE_FPGA_READY:
@@ -809,7 +809,7 @@ std::string b200_iface::fx3_state_string(uint8_t state)
 /***********************************************************************
  * Make an instance of the implementation
  **********************************************************************/
-b200_iface::sptr b200_iface::make(usb_control::sptr usb_ctrl)
+ant_iface::sptr ant_iface::make(usb_control::sptr usb_ctrl)
 {
     return sptr(new b200_iface_impl(usb_ctrl));
 }

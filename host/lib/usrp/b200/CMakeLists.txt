@@ -14,12 +14,12 @@
 ########################################################################
 if(ENABLE_B200)
     LIBUHD_APPEND_SOURCES(
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_image_loader.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_impl.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_iface.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_io_impl.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_uart.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_cores.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/b200_mb_eeprom.cpp
+#        ${CMAKE_CURRENT_SOURCE_DIR}/b200_image_loader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ant_impl.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ant_iface.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ant_io_impl.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ant_uart.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ant_cores.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ant_mb_eeprom.cpp
     )
 endif(ENABLE_B200)
