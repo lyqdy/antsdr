@@ -40,6 +40,48 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+/* microphase */
+#include <uhd/transport/udp_simple.hpp>
+#include <uhd/transport/udp_zero_copy.hpp>
+#include <uhd/transport/vrt_if_packet.hpp>
+
+/* microphase */
+/*
+ * UDP ports for the E310 communication
+ * ports 49200 - 49210
+ * */
+#define MICROPHASE_ANT_UDP_FIND_PORT 49100
+#define MICROPHASE_ANT_UDP_CTRL_PORT 49200
+#define MICROPHASE_ANT_UDP_DATA_TX_PORT 49202
+#define MICROPHASE_ANT_UDP_DATA_RX_PORT 49204
+
+#define MICROPHASE_ANT_FW_COMPAT_NUM 2
+
+#define BUFF_SIZE 1e6
+
+
+typedef enum{
+    MICROPHASE_CHECK = '1',
+
+    MICROPHASE_CTRL_ID_WAZZUP_BR0 = 'm',
+    MICROPHASE_CTRL_ID_WAZZUP_DUDE = 'M',
+
+    MICROPHASE_SERIAL_BR0 = '9',
+    MICROPHASE_SERIAL_DUDE = '0',
+
+    MICROPHASE_AUTHOR_BR0 = 'j',
+    MICROPHASE_AUTHOR_DUDE = 'c',
+
+    MICROPHASE_DATA_RX_WAZZUP_BR0 = 'r',
+} microphase_ant_ctrl_id_e;
+
+typedef struct {
+    uint32_t check;
+    uint32_t id;
+    uint32_t serial;
+    uint32_t auth;
+    uint8_t serial_all[32];
+} microphase_ant_ctrl_data_t;
 
 static const uint8_t B200_FW_COMPAT_NUM_MAJOR = 8;
 static const uint8_t B200_FW_COMPAT_NUM_MINOR = 0;
@@ -134,6 +176,8 @@ public:
     static uhd::usrp::mboard_eeprom_t get_mb_eeprom(uhd::i2c_iface::sptr);
 
 private:
+    /* microphase product */
+    microphase_produce_t _product_mp;
     b200_product_t _product;
     size_t _revision;
     bool _gpsdo_capable;
@@ -150,8 +194,11 @@ private:
     std::shared_ptr<uhd::usrp::adf4001_ctrl> _adf4001_iface;
     uhd::gps_ctrl::sptr _gps;
 
+    /* microphase */
+    uhd::transport::zero_copy_if::sptr _data_tx_transport;
+    uhd::transport::zero_copy_if::sptr _data_rx_transport;
+
     // transports
-    uhd::transport::zero_copy_if::sptr _data_transport;
     uhd::transport::zero_copy_if::sptr _ctrl_transport;
     uhd::usrp::recv_packet_demuxer_3000::sptr _demux;
 
@@ -323,6 +370,41 @@ private:
     //! Coercer, attached to the "rate/value" property on the tx dsps.
     double coerce_tx_samp_rate(tx_dsp_core_3000::sptr, size_t, const double);
     void update_tx_samp_rate(const size_t, const double);
+
+    /* microphase for e310 */
+    struct tx_fc_cache_t
+    {
+        tx_fc_cache_t()
+                : stream_channel(0)
+                , device_channel(0)
+                , last_seq_out(0)
+                , last_seq_ack(0)
+                , seq_queue(1)
+        {
+        }
+        size_t stream_channel;
+        size_t device_channel;
+        size_t last_seq_out;
+        size_t last_seq_ack;
+        uhd::transport::bounded_buffer<size_t> seq_queue;
+        std::shared_ptr<async_md_type> async_queue;
+        std::shared_ptr<async_md_type> old_async_queue;
+    };
+
+    //rx connect
+    void _program_dispatcher(uhd::transport::zero_copy_if& xport);
+
+    static size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
+    typedef boost::function<double(void)> tick_rate_retriever_t;
+    static void _handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                      uhd::transport::zero_copy_if::sptr xport,
+                                      tick_rate_retriever_t get_tick_rate);
+    static uhd::transport::managed_send_buffer::sptr _get_tx_buff_with_flowctrl(
+            uhd::task::sptr /*holds ref*/,
+            boost::shared_ptr<tx_fc_cache_t> fc_cache,
+            uhd::transport::zero_copy_if::sptr xport,
+            size_t fc_pkt_window,
+            const double timeout);
 };
 
 #endif /* INCLUDED_B200_IMPL_HPP */

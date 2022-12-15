@@ -431,7 +431,7 @@ rx_streamer::sptr b200_impl::get_rx_stream(const uhd::stream_args_t& args_)
             - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
             - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
             ;
-        const size_t bpp = _data_transport->get_recv_frame_size() - hdr_size;
+        const size_t bpp = _data_rx_transport->get_recv_frame_size() - hdr_size;
         const size_t bpi = convert::get_bytes_per_item(args.otw_format);
         size_t spp       = unsigned(args.args.cast<double>("spp", bpp / bpi));
         spp = std::min<size_t>(4092, spp); // FPGA FIFO maximum for framing at full rate
@@ -500,7 +500,8 @@ void b200_impl::handle_overflow(const size_t radio_index)
         _demux->realloc_sid(B200_RX_DATA0_SID);
         _demux->realloc_sid(B200_RX_DATA1_SID);
         // flush actual transport
-        while (_data_transport->get_recv_buff(0.001)) {
+        while (_data_rx_transport->get_recv_buff(0.001)) {
+
         }
         // restart streaming
         if (in_continuous_streaming_mode) {
@@ -513,7 +514,7 @@ void b200_impl::handle_overflow(const size_t radio_index)
             // my_streamer->issue_stream_cmd(stream_cmd);
         }
     } else {
-        while (_data_transport->get_recv_buff(0.001)) {
+        while (_data_rx_transport->get_recv_buff(0.001)) {
         }
         // FIXME: temporarily remove the overflow handling that re-issues a stream
         //        command. This will avoid an issue that gets the b210 in a bad state.
@@ -542,6 +543,9 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
 
     std::shared_ptr<sph::send_packet_streamer> my_streamer;
     for (size_t stream_i = 0; stream_i < args.channels.size(); stream_i++) {
+        /* microphase */
+        const size_t chan = args.channels[stream_i];
+
         const size_t radio_index =
             _tree->access<std::vector<size_t>>("/mboards/0/tx_chan_dsp_mapping")
                 .get()
@@ -558,14 +562,18 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
 
         // calculate packet size
         static const size_t hdr_size =
-            0
-            + vrt::max_if_hdr_words32 * sizeof(uint32_t)
-            //+ sizeof(vrt::if_packet_info_t().tlr) //forced to have trailer
-            - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
-            - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
-            ;
-        static const size_t bpp = _data_transport->get_send_frame_size() - hdr_size;
+                0
+                + vrt::max_if_hdr_words32 * sizeof(uint32_t)
+                //+ sizeof(vrt::if_packet_info_t().tlr) //forced to have trailer
+                - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
+                - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
+        ;
+        static size_t bpp;
+        if(_product_mp == E310){
+            bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
+        }
         const size_t spp        = bpp / convert::get_bytes_per_item(args.otw_format);
+
 
         // make the new streamer given the samples per packet
         if (not my_streamer)
@@ -586,28 +594,110 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         perif.deframer->clear();
         perif.deframer->setup(args);
         perif.duc->setup(args);
+        if(_product_mp == E310) {
+            // flow control setup
+            size_t fc_window = _get_tx_flow_control_window(bpp, BUFF_SIZE);
+            // In packets
+            perif.deframer->configure_flow_control(0/* cycs off */, 30);
+            boost::shared_ptr<tx_fc_cache_t> fc_cache(new tx_fc_cache_t());
+            fc_cache->stream_channel = stream_i;
+            fc_cache->device_channel = chan;
+            fc_cache->async_queue = _async_task_data->async_md;
+            fc_cache->old_async_queue = _async_task_data->async_md;
 
-        my_streamer->set_xport_chan_get_buff(stream_i,
-            std::bind(
-                &zero_copy_if::get_send_buff, _data_transport, std::placeholders::_1));
-        my_streamer->set_async_receiver(std::bind(&async_md_type::pop_with_timed_wait,
-            _async_task_data->async_md,
-            std::placeholders::_1,
-            std::placeholders::_2));
+            tick_rate_retriever_t get_tick_rate_fn =
+                    boost::bind(&b200_impl::get_tick_rate, this);
+            task::sptr task =
+                    task::make(boost::bind(&b200_impl::_handle_tx_async_msgs,
+                                           fc_cache,
+                                           _data_tx_transport,
+                                           get_tick_rate_fn));
+
+            my_streamer->set_xport_chan_get_buff(stream_i,
+                                                 boost::bind(&b200_impl::_get_tx_buff_with_flowctrl,
+                                                             task,
+                                                             fc_cache,
+                                                             _data_tx_transport,
+                                                             fc_window,
+                                                             _1));
+        }
+
+
+        my_streamer->set_async_receiver(boost::bind(
+                &async_md_type::pop_with_timed_wait, _async_task_data->async_md, _1, _2));
         my_streamer->set_xport_chan_sid(
-            stream_i, true, radio_index ? B200_TX_DATA1_SID : B200_TX_DATA0_SID);
+                stream_i, true, radio_index ? B200_TX_DATA1_SID : B200_TX_DATA0_SID);
         my_streamer->set_enable_trailer(false); // TODO not implemented trailer support
-                                                // yet
+        // yet
         perif.tx_streamer = my_streamer; // store weak pointer
-
         // sets all tick and samp rates on this streamer
         this->update_tick_rate(this->get_tick_rate());
         _tree
-            ->access<double>(
-                str(boost::format("/mboards/0/tx_dsps/%u/rate/value") % radio_index))
-            .update();
+                ->access<double>(
+                        str(boost::format("/mboards/0/tx_dsps/%u/rate/value") % radio_index))
+                .update();
     }
     this->update_enables();
 
     return my_streamer;
+}
+
+/* Microphase for ant */
+size_t b200_impl::_get_tx_flow_control_window(size_t payload_size, size_t hw_buff_size) {
+    size_t window_in_pkts = hw_buff_size / payload_size;
+    if (window_in_pkts == 0) {
+        throw uhd::value_error("send_buff_size must be larger than the send_frame_size.");
+    }
+    return window_in_pkts;
+}
+
+void b200_impl::_handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                      uhd::transport::zero_copy_if::sptr xport, tick_rate_retriever_t get_tick_rate) {
+    managed_recv_buffer::sptr buff = xport->get_recv_buff();
+    if(not buff)
+        return;
+    vrt::if_packet_info_t if_packet_info;
+    if_packet_info.num_packet_words32 = buff->size() / sizeof(uint32_t);
+    const uint32_t* packet_buff       = buff->cast<const uint32_t*>();
+
+    // unpacking can fail
+    uint32_t (*endian_conv)(uint32_t) = uhd::wtohx;
+    try {
+        b200_if_hdr_unpack_le(packet_buff, if_packet_info);
+    } catch (const std::exception& ex) {
+        UHD_LOGGER_ERROR("ANT") << "Error parsing ctrl packet: " << ex.what();
+    }
+    async_metadata_t metadata;
+    load_metadata_from_buff(endian_conv,
+                            metadata,
+                            if_packet_info,
+                            packet_buff,
+                            get_tick_rate(),
+                            fc_cache->stream_channel);
+
+    const size_t seq = metadata.user_payload[0];
+    fc_cache->seq_queue.push_with_pop_on_full(seq);
+    standard_async_msg_prints(metadata);
+}
+
+uhd::transport::managed_send_buffer::sptr b200_impl::_get_tx_buff_with_flowctrl(uhd::task::sptr,
+                                                                                boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                                                                uhd::transport::zero_copy_if::sptr xport,
+                                                                                size_t fc_pkt_window,
+                                                                                const double timeout) {
+    while (true) {
+        const size_t delta = (fc_cache->last_seq_out & 0xFFF)
+                             - (fc_cache->last_seq_ack & 0xFFF);
+        if ((delta & 0xFFF) <= fc_pkt_window)
+            break;
+        const bool ok =
+                fc_cache->seq_queue.pop_with_timed_wait(fc_cache->last_seq_ack, timeout);
+        if (not ok)
+            return uhd::transport::managed_send_buffer::sptr(); // timeout waiting for flow control
+    }
+
+    managed_send_buffer::sptr buff = xport->get_send_buff(timeout);
+    if (buff)
+        fc_cache->last_seq_out++; // update seq, this will actually be a send
+    return buff;
 }
