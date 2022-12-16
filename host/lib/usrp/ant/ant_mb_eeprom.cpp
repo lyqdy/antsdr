@@ -5,8 +5,8 @@
 //
 
 #include "ant_impl.hpp"
-#include <uhd/usrp/mboard_eeprom.hpp>
-#include <uhdlib/utils/eeprom_utils.hpp>
+#include "uhd/usrp/mboard_eeprom.hpp"
+#include "include/uhdlib/utils/eeprom_utils.hpp"
 #include <unordered_map>
 
 using namespace uhd;

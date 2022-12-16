@@ -17,9 +17,6 @@
 #include <boost/assign/list_of.hpp>
 #include <memory>
 
-/* microphase */
-enum microphase_produce_t {E310 ,E200 ,ETTUS};
-
 enum b200_product_t { B200, B210, B200MINI, B205MINI };
 
 // These are actual USB PIDs (not Ettus Product IDs)
@@ -58,10 +55,10 @@ static const uhd::dict<b200_product_t, std::string> B2XX_FPGA_FILE_NAME =
         B200MINI, "usrp_b200mini_fpga.bin")(B205MINI, "usrp_b205mini_fpga.bin");
 
 
-class UHD_API ant_iface : uhd::noncopyable, public virtual uhd::i2c_iface
+class UHD_API b200_iface : uhd::noncopyable, public virtual uhd::i2c_iface
 {
 public:
-    typedef std::shared_ptr<ant_iface> sptr;
+    typedef std::shared_ptr<b200_iface> sptr;
 
     /*!
      * Make a b200 interface object from a control transport

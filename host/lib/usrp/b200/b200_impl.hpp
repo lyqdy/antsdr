@@ -8,9 +8,9 @@
 #ifndef INCLUDED_B200_IMPL_HPP
 #define INCLUDED_B200_IMPL_HPP
 
-#include "ant_cores.hpp"
-#include "ant_iface.hpp"
-#include "ant_uart.hpp"
+#include "b200_cores.hpp"
+#include "b200_iface.hpp"
+#include "b200_uart.hpp"
 #include <uhd/device.hpp>
 #include <uhd/property_tree.hpp>
 #include <uhd/transport/bounded_buffer.hpp>
@@ -40,87 +40,82 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-/* microphase */
-#include <uhd/transport/udp_simple.hpp>
-#include <uhd/transport/udp_zero_copy.hpp>
-#include <uhd/transport/vrt_if_packet.hpp>
 
-/* microphase */
-/*
- * UDP ports for the E310 communication
- * ports 49200 - 49210
- * */
-#define MICROPHASE_ANT_UDP_FIND_PORT 49100
-#define MICROPHASE_ANT_UDP_CTRL_PORT 49200
-#define MICROPHASE_ANT_UDP_DATA_TX_PORT 49202
-#define MICROPHASE_ANT_UDP_DATA_RX_PORT 49204
-
-#define MICROPHASE_ANT_FW_COMPAT_NUM 2
-
-#define BUFF_SIZE 1e6
-
-
-typedef enum{
-    MICROPHASE_CHECK = '1',
-
-    MICROPHASE_CTRL_ID_WAZZUP_BR0 = 'm',
-    MICROPHASE_CTRL_ID_WAZZUP_DUDE = 'M',
-
-    MICROPHASE_SERIAL_BR0 = '9',
-    MICROPHASE_SERIAL_DUDE = '0',
-
-    MICROPHASE_AUTHOR_BR0 = 'j',
-    MICROPHASE_AUTHOR_DUDE = 'c',
-
-    MICROPHASE_DATA_RX_WAZZUP_BR0 = 'r',
-} microphase_ant_ctrl_id_e;
-
-typedef struct {
-    uint32_t check;
-    uint32_t id;
-    uint32_t serial;
-    uint32_t auth;
-    uint8_t serial_all[32];
-} microphase_ant_ctrl_data_t;
-
-static const uint8_t ANT_FW_COMPAT_NUM_MAJOR = 8;
-static const uint8_t ANT_FW_COMPAT_NUM_MINOR = 0;
+static const uint8_t B200_FW_COMPAT_NUM_MAJOR = 8;
+static const uint8_t B200_FW_COMPAT_NUM_MINOR = 0;
 static const uint16_t B200_FPGA_COMPAT_NUM    = 16;
 static const uint16_t B205_FPGA_COMPAT_NUM    = 7;
-static const double ANT_BUS_CLOCK_RATE       = 100e6;
-static const uint32_t ANT_GPSDO_ST_NONE      = 0x83;
+static const double B200_BUS_CLOCK_RATE       = 100e6;
+static const uint32_t B200_GPSDO_ST_NONE      = 0x83;
+static constexpr double B200_MAX_RATE_USB2    = 53248000; // bytes/s
+static constexpr double B200_MAX_RATE_USB3    = 500000000; // bytes/s
 
 #define FLIP_SID(sid) (((sid) << 16) | ((sid) >> 16))
 
-static const uint32_t ANT_CTRL0_MSG_SID = 0x00000010;
-static const uint32_t ANT_RESP0_MSG_SID = FLIP_SID(ANT_CTRL0_MSG_SID);
+static const uint32_t B200_CTRL0_MSG_SID = 0x00000010;
+static const uint32_t B200_RESP0_MSG_SID = FLIP_SID(B200_CTRL0_MSG_SID);
 
-static const uint32_t ANT_CTRL1_MSG_SID = 0x00000020;
-static const uint32_t ANT_RESP1_MSG_SID = FLIP_SID(ANT_CTRL1_MSG_SID);
+static const uint32_t B200_CTRL1_MSG_SID = 0x00000020;
+static const uint32_t B200_RESP1_MSG_SID = FLIP_SID(B200_CTRL1_MSG_SID);
 
-static const uint32_t ANT_TX_DATA0_SID = 0x00000050;
-static const uint32_t ANT_TX_MSG0_SID  = FLIP_SID(ANT_TX_DATA0_SID);
+static const uint32_t B200_TX_DATA0_SID = 0x00000050;
+static const uint32_t B200_TX_MSG0_SID  = FLIP_SID(B200_TX_DATA0_SID);
 
-static const uint32_t ANT_TX_DATA1_SID = 0x00000060;
-static const uint32_t ANT_TX_MSG1_SID  = FLIP_SID(ANT_TX_DATA1_SID);
+static const uint32_t B200_TX_DATA1_SID = 0x00000060;
+static const uint32_t B200_TX_MSG1_SID  = FLIP_SID(B200_TX_DATA1_SID);
 
-static const uint32_t ANT_RX_DATA0_SID = 0x000000A0;
-static const uint32_t ANT_RX_DATA1_SID = 0x000000B0;
+static const uint32_t B200_RX_DATA0_SID = 0x000000A0;
+static const uint32_t B200_RX_DATA1_SID = 0x000000B0;
 
-static const uint32_t ANT_TX_GPS_UART_SID = 0x00000030;
-static const uint32_t ANT_RX_GPS_UART_SID = FLIP_SID(ANT_TX_GPS_UART_SID);
+static const uint32_t B200_TX_GPS_UART_SID = 0x00000030;
+static const uint32_t B200_RX_GPS_UART_SID = FLIP_SID(B200_TX_GPS_UART_SID);
 
-static const uint32_t ANT_LOCAL_CTRL_SID = 0x00000040;
-static const uint32_t ANT_LOCAL_RESP_SID = FLIP_SID(ANT_LOCAL_CTRL_SID);
+static const uint32_t B200_LOCAL_CTRL_SID = 0x00000040;
+static const uint32_t B200_LOCAL_RESP_SID = FLIP_SID(B200_LOCAL_CTRL_SID);
 
+static const unsigned char B200_USB_CTRL_RECV_INTERFACE = 4;
+static const unsigned char B200_USB_CTRL_RECV_ENDPOINT  = 8;
+static const unsigned char B200_USB_CTRL_SEND_INTERFACE = 3;
+static const unsigned char B200_USB_CTRL_SEND_ENDPOINT  = 4;
+
+static const unsigned char B200_USB_DATA_RECV_INTERFACE = 2;
+static const unsigned char B200_USB_DATA_RECV_ENDPOINT  = 6;
+static const unsigned char B200_USB_DATA_SEND_INTERFACE = 1;
+static const unsigned char B200_USB_DATA_SEND_ENDPOINT  = 2;
+
+// Default recv_frame_size. Must not be a multiple of 512.
+static const int B200_USB_DATA_DEFAULT_FRAME_SIZE = 8176;
+// recv_frame_size values below this will be upped to this value
+static const int B200_USB_DATA_MIN_RECV_FRAME_SIZE = 40;
+static const int B200_USB_DATA_MAX_RECV_FRAME_SIZE = 16360;
+
+/*
+ * VID/PID pairs for all B2xx products
+ */
+static std::vector<uhd::transport::usb_device_handle::vid_pid_pair_t> b200_vid_pid_pairs =
+    boost::assign::list_of(uhd::transport::usb_device_handle::vid_pid_pair_t(
+        B200_VENDOR_ID, B200_PRODUCT_ID))(
+        uhd::transport::usb_device_handle::vid_pid_pair_t(
+            B200_VENDOR_ID, B200MINI_PRODUCT_ID))(
+        uhd::transport::usb_device_handle::vid_pid_pair_t(
+            B200_VENDOR_ID, B205MINI_PRODUCT_ID))(
+        uhd::transport::usb_device_handle::vid_pid_pair_t(
+            B200_VENDOR_NI_ID, B200_PRODUCT_NI_ID))(
+        uhd::transport::usb_device_handle::vid_pid_pair_t(
+            B200_VENDOR_NI_ID, B210_PRODUCT_NI_ID));
+
+b200_product_t get_b200_product(const uhd::transport::usb_device_handle::sptr& handle,
+    const uhd::usrp::mboard_eeprom_t& mb_eeprom);
+std::vector<uhd::transport::usb_device_handle::sptr> get_b200_device_handles(
+    const uhd::device_addr_t& hint);
 
 //! Implementation guts
-class ant_impl : public uhd::device
+class b200_impl : public uhd::device
 {
 public:
     // structors
-    ant_impl(const uhd::device_addr_t&, uhd::transport::usb_device_handle::sptr& handle);
-    ~ant_impl(void) override;
+    b200_impl(const uhd::device_addr_t&, uhd::transport::usb_device_handle::sptr& handle);
+    ~b200_impl(void) override;
 
     // the io interface
     uhd::rx_streamer::sptr get_rx_stream(const uhd::stream_args_t& args) override;
@@ -139,8 +134,6 @@ public:
     static uhd::usrp::mboard_eeprom_t get_mb_eeprom(uhd::i2c_iface::sptr);
 
 private:
-    /* microphase product */
-    microphase_produce_t _product_mp;
     b200_product_t _product;
     size_t _revision;
     bool _gpsdo_capable;
@@ -149,7 +142,7 @@ private:
     const bool _enable_user_regs;
 
     // controllers
-    ant_iface::sptr _iface;
+    b200_iface::sptr _iface;
     radio_ctrl_core_3000::sptr _local_ctrl;
     uhd::usrp::ad9361_ctrl::sptr _codec_ctrl;
     uhd::usrp::ad936x_manager::sptr _codec_mgr;
@@ -157,11 +150,8 @@ private:
     std::shared_ptr<uhd::usrp::adf4001_ctrl> _adf4001_iface;
     uhd::gps_ctrl::sptr _gps;
 
-    /* microphase */
-    uhd::transport::zero_copy_if::sptr _data_tx_transport;
-    uhd::transport::zero_copy_if::sptr _data_rx_transport;
-
     // transports
+    uhd::transport::zero_copy_if::sptr _data_transport;
     uhd::transport::zero_copy_if::sptr _ctrl_transport;
     uhd::usrp::recv_packet_demuxer_3000::sptr _demux;
 
@@ -178,7 +168,7 @@ private:
         std::shared_ptr<async_md_type> async_md;
         std::weak_ptr<radio_ctrl_core_3000> local_ctrl;
         std::weak_ptr<radio_ctrl_core_3000> radio_ctrl[2];
-        ant_uart::sptr gpsdo_uart;
+        b200_uart::sptr gpsdo_uart;
     };
     std::shared_ptr<AsyncTaskData> _async_task_data;
     boost::optional<uhd::msg_task::msg_type_t> handle_async_task(
@@ -186,6 +176,7 @@ private:
 
     void register_loopback_self_test(uhd::wb_iface::sptr iface);
     void set_mb_eeprom(const uhd::usrp::mboard_eeprom_t&);
+    void check_fw_compat(void);
     void check_fpga_compat(void);
     uhd::usrp::subdev_spec_t coerce_subdev_spec(const uhd::usrp::subdev_spec_t&);
     void update_subdev_spec(const std::string& tx_rx, const uhd::usrp::subdev_spec_t&);
@@ -332,41 +323,6 @@ private:
     //! Coercer, attached to the "rate/value" property on the tx dsps.
     double coerce_tx_samp_rate(tx_dsp_core_3000::sptr, size_t, const double);
     void update_tx_samp_rate(const size_t, const double);
-
-    /* microphase for e310 */
-    struct tx_fc_cache_t
-    {
-        tx_fc_cache_t()
-                : stream_channel(0)
-                , device_channel(0)
-                , last_seq_out(0)
-                , last_seq_ack(0)
-                , seq_queue(1)
-        {
-        }
-        size_t stream_channel;
-        size_t device_channel;
-        size_t last_seq_out;
-        size_t last_seq_ack;
-        uhd::transport::bounded_buffer<size_t> seq_queue;
-        std::shared_ptr<async_md_type> async_queue;
-        std::shared_ptr<async_md_type> old_async_queue;
-    };
-
-    //rx connect
-    void _program_dispatcher(uhd::transport::zero_copy_if& xport);
-
-    static size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
-    typedef boost::function<double(void)> tick_rate_retriever_t;
-    static void _handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
-                                      uhd::transport::zero_copy_if::sptr xport,
-                                      tick_rate_retriever_t get_tick_rate);
-    static uhd::transport::managed_send_buffer::sptr _get_tx_buff_with_flowctrl(
-            uhd::task::sptr /*holds ref*/,
-            boost::shared_ptr<tx_fc_cache_t> fc_cache,
-            uhd::transport::zero_copy_if::sptr xport,
-            size_t fc_pkt_window,
-            const double timeout);
 };
 
 #endif /* INCLUDED_B200_IMPL_HPP */

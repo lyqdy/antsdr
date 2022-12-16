@@ -6,18 +6,17 @@
 //
 
 #include "ant_impl.hpp"
-#include "../../transport/libusb1_base.hpp"
 #include "ant_regs.hpp"
-#include <uhd/cal/database.hpp>
-#include <uhd/config.hpp>
-#include <uhd/exception.hpp>
-#include <uhd/transport/usb_control.hpp>
-#include <uhd/usrp/dboard_eeprom.hpp>
-#include <uhd/utils/cast.hpp>
-#include <uhd/utils/log.hpp>
-#include <uhd/utils/paths.hpp>
-#include <uhd/utils/safe_call.hpp>
-#include <uhd/utils/static.hpp>
+#include "uhd/cal/database.hpp"
+#include "uhd/config.hpp"
+#include "uhd/exception.hpp"
+#include "uhd/transport/usb_control.hpp"
+#include "uhd/usrp/dboard_eeprom.hpp"
+#include "uhd/utils/cast.hpp"
+#include "uhd/utils/log.hpp"
+#include "uhd/utils/paths.hpp"
+#include "uhd/utils/safe_call.hpp"
+#include "uhd/utils/static.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/functional/hash.hpp>
@@ -30,8 +29,8 @@
 #include <memory>
 
 
-#include <uhd/transport/if_addrs.hpp>
-#include <uhd/utils/byteswap.hpp>
+#include "uhd/transport/if_addrs.hpp"
+#include "uhd/utils/byteswap.hpp"
 #include <arpa/inet.h>
 /* if windows #include<Winsock2.h> */
 #include "uhd/transport/udp_zero_copy.hpp"
@@ -85,7 +84,7 @@ public:
 /***********************************************************************
  * Helpers
  **********************************************************************/
-std::string check_option_valid(const std::string& name,
+std::string check_ant_option_valid(const std::string& name,
     const std::vector<std::string>& valid_options,
     const std::string& option)
 {
@@ -103,7 +102,7 @@ std::string check_option_valid(const std::string& name,
  **********************************************************************/
 //! Look up the type of ant-Series device we're currently running.
 
-static device_addrs_t b200_find(const device_addr_t& hint)
+static device_addrs_t ant_find(const device_addr_t& hint)
 {
     device_addrs_t ant_addrs;
 
@@ -205,7 +204,7 @@ static device_addrs_t b200_find(const device_addr_t& hint)
 /***********************************************************************
  * Make
  **********************************************************************/
-static device::sptr b200_make(const device_addr_t& device_addr)
+static device::sptr ant_make(const device_addr_t& device_addr)
 {
     uhd::transport::usb_device_handle::sptr handle;
 
@@ -221,9 +220,9 @@ static device::sptr b200_make(const device_addr_t& device_addr)
     return device::sptr(new ant_impl(device_addr, handle));
 }
 
-UHD_STATIC_BLOCK(register_b200_device)
+UHD_STATIC_BLOCK(register_ant_device)
 {
-    device::register_device(&b200_find, &b200_make, device::USRP);
+    device::register_device(&ant_find, &ant_make, device::USRP);
 }
 
 /***********************************************************************
@@ -266,7 +265,7 @@ ant_impl::ant_impl(
         _tree->create<mboard_eeprom_t>(mb_path / "eeprom")
                 .set(mb_eeprom)
                 .add_coerced_subscriber(
-                        std::bind(&ant_impl::set_mb_eeprom, this, std::placeholders::_1)
+                        std::bind(&ant_impl::set_mb_eeprom, this)
                 );
 
         _gpsdo_capable = 0;
@@ -349,11 +348,11 @@ ant_impl::ant_impl(
         ////////////////////////////////////////////////////////////////////
         if (_gpsdo_capable) {
             if ((_local_ctrl->peek32(RB32_CORE_STATUS) & 0xff) != ANT_GPSDO_ST_NONE) {
-                UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
+                UHD_LOGGER_INFO("ANT") << "Detecting internal GPSDO.... " << std::flush;
                 try {
                     _gps = gps_ctrl::make(_async_task_data->gpsdo_uart);
                 } catch (std::exception &e) {
-                    UHD_LOGGER_ERROR("B200")
+                    UHD_LOGGER_ERROR("ANT")
                             << "An error occurred making GPSDO control: " << e.what();
                 }
                 if (_gps and _gps->gps_detected()) {
@@ -378,9 +377,6 @@ ant_impl::ant_impl(
 
         ////////////////////////////////////////////////////////////////////
         // Create data transport
-        // This happens after FPGA ctrl instantiated so any junk that might
-        // be in the FPGAs buffers doesn't get pulled into the transport
-        // before being cleared.
         ////////////////////////////////////////////////////////////////////
         udp_zero_copy::buff_params ignored_out_params;
         device_addr_t fi_hints;
@@ -403,9 +399,9 @@ ant_impl::ant_impl(
         ////////////////////////////////////////////////////////////////////
         // create time and clock control objects
         ////////////////////////////////////////////////////////////////////
-        _spi_iface = b200_local_spi_core::make(_local_ctrl);
+        _spi_iface = ant_local_spi_core::make(_local_ctrl);
         if (not(_product == B200MINI or _product == B205MINI)) {
-            _adf4001_iface = std::make_shared<b200_ref_pll_ctrl>(_spi_iface);
+            _adf4001_iface = std::make_shared<ant_ref_pll_ctrl>(_spi_iface);
         }
 
         ////////////////////////////////////////////////////////////////////
@@ -477,7 +473,7 @@ ant_impl::ant_impl(
         ////////////////////////////////////////////////////////////////////
         // setup radio control
         ////////////////////////////////////////////////////////////////////
-        UHD_LOGGER_INFO("B200") << "Initialize Radio control...";
+        UHD_LOGGER_INFO("ANT") << "Initialize Radio control...";
         const size_t num_radio_chains = ((_local_ctrl->peek32(RB32_CORE_STATUS) >> 8) & 0xff);
         UHD_ASSERT_THROW(num_radio_chains > 0);
         UHD_ASSERT_THROW(num_radio_chains <= 2);
@@ -523,7 +519,7 @@ ant_impl::ant_impl(
                 .set(time_sources);
         _tree->create<std::string>(mb_path / "time_source" / "value")
                 .set_coercer(std::bind(
-                        &check_option_valid, "time source", time_sources, std::placeholders::_1))
+                        &check_ant_option_valid, "time source", time_sources, std::placeholders::_1))
                 .add_coerced_subscriber(
                         std::bind(&ant_impl::update_time_source, this, std::placeholders::_1));
         // setup reference source props
@@ -534,7 +530,7 @@ ant_impl::ant_impl(
                 .set(clock_sources);
         _tree->create<std::string>(mb_path / "clock_source" / "value")
                 .set_coercer(std::bind(
-                        &check_option_valid, "clock source", clock_sources, std::placeholders::_1))
+                        &check_ant_option_valid, "clock source", clock_sources, std::placeholders::_1))
                 .add_coerced_subscriber(
                         std::bind(&ant_impl::update_clock_source, this, std::placeholders::_1));
 
@@ -605,7 +601,7 @@ ant_impl::ant_impl(
         ////////////////////////////////////////////////////////////////////
         // Init the clock rate and the auto mcr appropriately
         if (not device_addr.has_key("master_clock_rate")) {
-            UHD_LOGGER_INFO("B200") << "Setting master clock rate selection to 'automatic'.";
+            UHD_LOGGER_INFO("ANT") << "Setting master clock rate selection to 'automatic'.";
         }
         // We can automatically choose a master clock rate, but not if the user specifies one
         const double default_tick_rate =
@@ -690,12 +686,12 @@ void ant_impl::setup_radio(const size_t dspno)
     perif.duc->set_link_rate(10e9 / 8); // whatever
     perif.duc->set_freq(tx_dsp_core_3000::DEFAULT_CORDIC_FREQ);
     if (_enable_user_regs) {
-        UHD_LOG_DEBUG("B200", "Enabling user settings registers");
+        UHD_LOG_DEBUG("ANT", "Enabling user settings registers");
         perif.user_settings = user_settings_core_3000::make(
             perif.ctrl, TOREG(SR_USER_SR_BASE), TOREG(SR_USER_RB_ADDR));
         if (!perif.user_settings) {
             const std::string error_msg = "Failed to create user settings bus!";
-            UHD_LOG_ERROR("B200", error_msg);
+            UHD_LOG_ERROR("ANT", error_msg);
             throw uhd::runtime_error(error_msg);
         }
     }
@@ -890,7 +886,7 @@ void ant_impl::setup_radio(const size_t dspno)
 void ant_impl::register_loopback_self_test(wb_iface::sptr iface)
 {
     bool test_fail = false;
-    UHD_LOGGER_INFO("B200") << "Performing register loopback test... ";
+    UHD_LOGGER_INFO("ANT") << "Performing register loopback test... ";
     size_t hash = size_t(time(NULL));
     for (size_t i = 0; i < 100; i++) {
         boost::hash_combine(hash, i);
@@ -899,7 +895,7 @@ void ant_impl::register_loopback_self_test(wb_iface::sptr iface)
         if (test_fail)
             break; // exit loop on any failure
     }
-    UHD_LOGGER_INFO("B200") << "Register loopback test "
+    UHD_LOGGER_INFO("ANT") << "Register loopback test "
                             << ((test_fail) ? "failed" : "passed");
 }
 
@@ -940,7 +936,7 @@ void ant_impl::enforce_tick_rate_limits(
 
 double ant_impl::set_tick_rate(const double new_tick_rate)
 {
-    UHD_LOGGER_INFO("B200") << (boost::format("Asking for clock rate %.6f MHz... ")
+    UHD_LOGGER_INFO("ANT") << (boost::format("Asking for clock rate %.6f MHz... ")
                                 % (new_tick_rate / 1e6))
                             << std::flush;
     check_tick_rate_with_current_streamers(new_tick_rate); // Defined in b200_io_impl.cpp
@@ -948,12 +944,12 @@ double ant_impl::set_tick_rate(const double new_tick_rate)
     // Make sure the clock rate is actually changed before doing
     // the full Monty of setting regs and loopback tests etc.
     if (std::abs(new_tick_rate - _tick_rate) < 1.0) {
-        UHD_LOGGER_INFO("B200") << "OK";
+        UHD_LOGGER_INFO("ANT") << "OK";
         return _tick_rate;
     }
 
     _tick_rate = _codec_ctrl->set_clock_rate(new_tick_rate);
-    UHD_LOGGER_INFO("B200") << (boost::format("Actually got clock rate %.6f MHz.")
+    UHD_LOGGER_INFO("ANT") << (boost::format("Actually got clock rate %.6f MHz.")
                                 % (_tick_rate / 1e6));
 
     for (radio_perifs_t& perif : _radio_perifs) {
@@ -1264,4 +1260,8 @@ sensor_value_t ant_impl::get_fe_pll_locked(const bool is_tx)
     return sensor_value_t("LO", locked, "locked", "unlocked");
 }
 
+void ant_impl::set_mb_eeprom()
+{
+    /* we need do no things */
 
+}

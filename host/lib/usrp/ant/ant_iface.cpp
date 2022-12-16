@@ -6,11 +6,10 @@
 //
 
 #include "ant_iface.hpp"
-#include <uhd/config.hpp>
-#include <uhd/exception.hpp>
-#include <uhd/utils/log.hpp>
-#include <uhdlib/utils/ihex.hpp>
-#include <libusb.h>
+#include "uhd/config.hpp"
+#include "uhd/exception.hpp"
+#include "uhd/utils/log.hpp"
+#include "include/uhdlib/utils/ihex.hpp"
 #include <stdint.h>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -40,8 +39,6 @@ const static uint8_t FX3_FIRMWARE_LOAD = 0xA0;
 // 32 KB - 256 bytes for EEPROM storage
 constexpr size_t BOOTLOADER_MAX_SIZE = 32512;
 
-const static uint8_t VRT_VENDOR_OUT = (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT);
-const static uint8_t VRT_VENDOR_IN  = (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN);
 const static uint8_t B200_VREQ_FPGA_START    = 0x02;
 const static uint8_t B200_VREQ_FPGA_DATA     = 0x12;
 const static uint8_t B200_VREQ_GET_COMPAT    = 0x15;

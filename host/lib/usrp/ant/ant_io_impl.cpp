@@ -9,9 +9,9 @@
 #include "../../transport/super_send_packet_handler.hpp"
 #include "ant_impl.hpp"
 #include "ant_regs.hpp"
-#include <uhd/utils/math.hpp>
-#include <uhdlib/usrp/common/async_packet_handler.hpp>
-#include <uhdlib/usrp/common/validate_subdev_spec.hpp>
+#include "uhd/utils/math.hpp"
+#include "uhdlib/usrp/common/async_packet_handler.hpp"
+#include "uhdlib/usrp/common/validate_subdev_spec.hpp"
 #include <functional>
 #include <memory>
 #include <set>
