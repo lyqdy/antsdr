@@ -206,18 +206,17 @@ static device_addrs_t ant_find(const device_addr_t& hint)
  **********************************************************************/
 static device::sptr ant_make(const device_addr_t& device_addr)
 {
-    uhd::transport::usb_device_handle::sptr handle;
 
     // We try twice, because the first time, the link might be in a bad state
     // and we might need to reset the link, but if that didn't help, trying
     // a third time is pointless.
     try {
-        return device::sptr(new ant_impl(device_addr, handle));
+        return device::sptr(new ant_impl(device_addr));
     } catch (const uhd::usb_error&) {
         UHD_LOGGER_INFO("ANT") << "Detected ANT net state; resetting device.";
     }
 
-    return device::sptr(new ant_impl(device_addr, handle));
+    return device::sptr(new ant_impl(device_addr));
 }
 
 UHD_STATIC_BLOCK(register_ant_device)
@@ -228,8 +227,7 @@ UHD_STATIC_BLOCK(register_ant_device)
 /***********************************************************************
  * Structors
  **********************************************************************/
-ant_impl::ant_impl(
-    const uhd::device_addr_t& device_addr, usb_device_handle::sptr& handle)
+ant_impl::ant_impl(const uhd::device_addr_t &device_addr)
     : _product(B200)
     , // Some safe value
     _revision(0)

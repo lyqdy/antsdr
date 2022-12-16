@@ -119,7 +119,7 @@ class ant_impl : public uhd::device
 {
 public:
     // structors
-    ant_impl(const uhd::device_addr_t&, uhd::transport::usb_device_handle::sptr& handle);
+    ant_impl(const uhd::device_addr_t &);
     ~ant_impl(void) override;
 
     // the io interface
