@@ -212,7 +212,7 @@ static device::sptr ant_make(const device_addr_t& device_addr)
     // a third time is pointless.
     try {
         return device::sptr(new ant_impl(device_addr));
-    } catch (const uhd::usb_error&) {
+    } catch (const uhd::assertion_error&) {
         UHD_LOGGER_INFO("ANT") << "Detected ANT net state; resetting device.";
     }
 
