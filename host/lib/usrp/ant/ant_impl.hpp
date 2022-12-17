@@ -53,6 +53,7 @@
 #define MICROPHASE_ANT_UDP_FIND_PORT 49100
 #define MICROPHASE_ANT_UDP_CTRL_PORT 49200
 #define MICROPHASE_ANT_UDP_DATA_TX_PORT 49202
+#define MICROPHASE_ANT_UDP_DATA_TX1_PORT 49203
 #define MICROPHASE_ANT_UDP_DATA_RX_PORT 49204
 
 #define MICROPHASE_ANT_FW_COMPAT_NUM 2
@@ -159,6 +160,7 @@ private:
 
     /* microphase */
     uhd::transport::zero_copy_if::sptr _data_tx_transport;
+    uhd::transport::zero_copy_if::sptr _data_tx1_transport;
     uhd::transport::zero_copy_if::sptr _data_rx_transport;
 
     // transports

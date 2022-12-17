@@ -248,7 +248,7 @@ ant_impl::ant_impl(const uhd::device_addr_t &device_addr)
         /* set the product is B200
          * because the e310 is using b200_driver
          * */
-        _product = B205MINI;
+        _product = B210;
         _product_mp = E310;
         const std::string addr = device_addr["addr"];
         UHD_LOGGER_INFO("ANT") << "Detected Device: ANTSDR";
@@ -281,9 +281,12 @@ ant_impl::ant_impl(const uhd::device_addr_t &device_addr)
         // does not have an FE2, so we don't swap FEs.
 
         // Swapped setup:
-        _fe1 = 1;
-        _fe2 = 0;
-        _gpio_state.swap_atr = 1;
+//        _fe1 = 1;
+//        _fe2 = 0;
+//        _gpio_state.swap_atr = 1;
+        _fe1 = 0;
+        _fe2 = 1;
+        _gpio_state.swap_atr = 0;
         // Unswapped setup:
         if (_product == B200MINI or _product == B205MINI
             or (_product == B200 and _revision >= 5)) {
@@ -392,6 +395,11 @@ ant_impl::ant_impl(const uhd::device_addr_t &device_addr)
                 addr, BOOST_STRINGIZE(MICROPHASE_ANT_UDP_DATA_TX_PORT), default_buff_args,
                 ignored_out_params, fi_hints);
         while (_data_tx_transport->get_recv_buff(0.0)) {
+        }
+        _data_tx1_transport = udp_zero_copy::make(
+                addr, BOOST_STRINGIZE(MICROPHASE_ANT_UDP_DATA_TX1_PORT), default_buff_args,
+                ignored_out_params, fi_hints);
+        while (_data_tx1_transport->get_recv_buff(0.0)) {
         }
 
         ////////////////////////////////////////////////////////////////////
@@ -970,7 +978,6 @@ void ant_impl::check_fpga_compat(void)
     if (signature != 0xACE0BA5E)
         throw uhd::runtime_error(
             "ant::check_fpga_compat signature register readback failed");
-
     const uint16_t expected = ((_product == B200MINI or _product == B205MINI)
                                    ? B205_FPGA_COMPAT_NUM
                                    : B200_FPGA_COMPAT_NUM);

@@ -514,11 +514,11 @@ void ant_impl::handle_overflow(const size_t radio_index)
             // my_streamer->issue_stream_cmd(stream_cmd);
         }
     } else {
-        while (_data_rx_transport->get_recv_buff(0.001)) {
-        }
+//        while (_data_rx_transport->get_recv_buff(0.001)) {
+//        }
         // FIXME: temporarily remove the overflow handling that re-issues a stream
         //        command. This will avoid an issue that gets the b210 in a bad state.
-        // _radio_perifs[radio_index].framer->handle_overflow();
+         _radio_perifs[radio_index].framer->handle_overflow();
     }
 }
 
@@ -568,10 +568,7 @@ tx_streamer::sptr ant_impl::get_tx_stream(const uhd::stream_args_t& args_)
                 - sizeof(vrt::if_packet_info_t().cid) // no class id ever used
                 - sizeof(vrt::if_packet_info_t().tsi) // no int time ever used
         ;
-        static size_t bpp;
-        if(_product_mp == E310){
-            bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
-        }
+        static size_t bpp = _data_tx_transport->get_send_frame_size() - hdr_size;
         const size_t spp        = bpp / convert::get_bytes_per_item(args.otw_format);
 
 
@@ -607,19 +604,38 @@ tx_streamer::sptr ant_impl::get_tx_stream(const uhd::stream_args_t& args_)
 
             tick_rate_retriever_t get_tick_rate_fn =
                     boost::bind(&ant_impl::get_tick_rate, this);
-            task::sptr task =
-                    task::make(boost::bind(&ant_impl::_handle_tx_async_msgs,
-                                           fc_cache,
-                                           _data_tx_transport,
-                                           get_tick_rate_fn));
 
-            my_streamer->set_xport_chan_get_buff(stream_i,
-                                                 boost::bind(&ant_impl::_get_tx_buff_with_flowctrl,
-                                                             task,
-                                                             fc_cache,
-                                                             _data_tx_transport,
-                                                             fc_window,
-                                                             _1));
+            if(chan == 0){
+                task::sptr task =
+                        task::make(boost::bind(&ant_impl::_handle_tx_async_msgs,
+                                               fc_cache,
+                                               _data_tx_transport,
+                                               get_tick_rate_fn));
+
+                my_streamer->set_xport_chan_get_buff(stream_i,
+                                                     boost::bind(&ant_impl::_get_tx_buff_with_flowctrl,
+                                                                 task,
+                                                                 fc_cache,
+                                                                 _data_tx_transport,
+                                                                 fc_window,
+                                                                 _1));
+            }
+            else if(chan == 1){
+                task::sptr task =
+                        task::make(boost::bind(&ant_impl::_handle_tx_async_msgs,
+                                               fc_cache,
+                                               _data_tx1_transport,
+                                               get_tick_rate_fn));
+
+                my_streamer->set_xport_chan_get_buff(stream_i,
+                                                     boost::bind(&ant_impl::_get_tx_buff_with_flowctrl,
+                                                                 task,
+                                                                 fc_cache,
+                                                                 _data_tx1_transport,
+                                                                 fc_window,
+                                                                 _1));
+            }
+
         }
 
 
