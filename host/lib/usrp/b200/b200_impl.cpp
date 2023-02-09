@@ -39,6 +39,41 @@ constexpr int64_t REENUMERATION_TIMEOUT_MS = 3000;
 }
 
 // B200 + B210:
+//class b200_ad9361_client_t : public ad9361_params
+//{
+//public:
+//    ~b200_ad9361_client_t() override {}
+//    double get_band_edge(frequency_band_t band) override
+//    {
+//        switch (band) {
+//            case AD9361_RX_BAND0:
+//                return 2.2e9; // Port C
+//            case AD9361_RX_BAND1:
+//                return 4.0e9; // Port B
+//            case AD9361_TX_BAND0:
+//                return 2.5e9; // Port B
+//            default:
+//                return 0;
+//        }
+//    }
+//    clocking_mode_t get_clocking_mode() override
+//    {
+//        return clocking_mode_t::AD9361_XTAL_N_CLK_PATH;
+//    }
+//    digital_interface_mode_t get_digital_interface_mode() override
+//    {
+//        return AD9361_DDR_FDD_LVCMOS;
+//    }
+//    digital_interface_delays_t get_digital_interface_timing() override
+//    {
+//        digital_interface_delays_t delays;
+//        delays.rx_clk_delay  = 0;
+//        delays.rx_data_delay = 0xF;
+//        delays.tx_clk_delay  = 0;
+//        delays.tx_data_delay = 0xF;
+//        return delays;
+//    }
+//};
 class b200_ad9361_client_t : public ad9361_params
 {
 public:
@@ -47,11 +82,11 @@ public:
     {
         switch (band) {
             case AD9361_RX_BAND0:
-                return 2.2e9; // Port C
+                return 0; // Port C
             case AD9361_RX_BAND1:
-                return 4.0e9; // Port B
+                return 0; // Port B
             case AD9361_TX_BAND0:
-                return 2.5e9; // Port B
+                return 0; // Port B
             default:
                 return 0;
         }
@@ -139,9 +174,11 @@ b200_product_t get_b200_product(
 {
     // Try USB PID first
     uint16_t product_id = handle->get_product_id();
+    std::cout << "product_id:" << product_id <<std::endl;
     if (B2XX_PID_TO_PRODUCT.has_key(product_id))
         return B2XX_PID_TO_PRODUCT[product_id];
 
+    std::cout << "mb_eeprom:" << mb_eeprom["product"] <<std::endl;
     // Try EEPROM product ID code second
     if (mb_eeprom["product"].empty()) {
         throw uhd::runtime_error("B200: Missing product ID on EEPROM.");
@@ -388,7 +425,11 @@ b200_impl::b200_impl(
     ////////////////////////////////////////////////////////////////////
     // setup the mboard eeprom
     ////////////////////////////////////////////////////////////////////
-    const mboard_eeprom_t mb_eeprom = get_mb_eeprom(_iface);
+    mboard_eeprom_t mb_eeprom = get_mb_eeprom(_iface);
+    std::vector<std::string>keys_vec,vals_vec;
+    keys_vec.push_back("product");
+    vals_vec.push_back("30740");
+    mb_eeprom[keys_vec[0]] = vals_vec[0];
     _tree->create<mboard_eeprom_t>(mb_path / "eeprom")
         .set(mb_eeprom)
         .add_coerced_subscriber(
@@ -434,9 +475,9 @@ b200_impl::b200_impl(
     // does not have an FE2, so we don't swap FEs.
 
     // Swapped setup:
-    _fe1                 = 1;
-    _fe2                 = 0;
-    _gpio_state.swap_atr = 1;
+    _fe1                 = 0;
+    _fe2                 = 1;
+    _gpio_state.swap_atr = 0;
     // Unswapped setup:
     if (_product == B200MINI or _product == B205MINI
         or (_product == B200 and _revision >= 5)) {
@@ -518,23 +559,38 @@ b200_impl::b200_impl(
     // Create the GPSDO control
     ////////////////////////////////////////////////////////////////////
     if (_gpsdo_capable) {
-        if ((_local_ctrl->peek32(RB32_CORE_STATUS) & 0xff) != B200_GPSDO_ST_NONE) {
-            UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
-            try {
-                _gps = gps_ctrl::make(_async_task_data->gpsdo_uart);
-            } catch (std::exception& e) {
-                UHD_LOGGER_ERROR("B200")
+        UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
+        try {
+            _gps = gps_ctrl::make(_async_task_data->gpsdo_uart);
+        } catch (std::exception& e) {
+            UHD_LOGGER_ERROR("B200")
                     << "An error occurred making GPSDO control: " << e.what();
-            }
-            if (_gps and _gps->gps_detected()) {
-                for (const std::string& name : _gps->get_sensors()) {
-                    _tree->create<sensor_value_t>(mb_path / "sensors" / name)
-                        .set_publisher(std::bind(&gps_ctrl::get_sensor, _gps, name));
-                }
-            } else {
-                _local_ctrl->poke32(TOREG(SR_CORE_GPSDO_ST), B200_GPSDO_ST_NONE);
-            }
         }
+        if (_gps and _gps->gps_detected()) {
+            for (const std::string& name : _gps->get_sensors()) {
+                _tree->create<sensor_value_t>(mb_path / "sensors" / name)
+                        .set_publisher(std::bind(&gps_ctrl::get_sensor, _gps, name));
+            }
+        } else {
+            _local_ctrl->poke32(TOREG(SR_CORE_GPSDO_ST), B200_GPSDO_ST_NONE);
+        }
+//        if ((_local_ctrl->peek32(RB32_CORE_STATUS) & 0xff) != B200_GPSDO_ST_NONE) {
+//            UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
+//            try {
+//                _gps = gps_ctrl::make(_async_task_data->gpsdo_uart);
+//            } catch (std::exception& e) {
+//                UHD_LOGGER_ERROR("B200")
+//                    << "An error occurred making GPSDO control: " << e.what();
+//            }
+//            if (_gps and _gps->gps_detected()) {
+//                for (const std::string& name : _gps->get_sensors()) {
+//                    _tree->create<sensor_value_t>(mb_path / "sensors" / name)
+//                        .set_publisher(std::bind(&gps_ctrl::get_sensor, _gps, name));
+//                }
+//            } else {
+//                _local_ctrl->poke32(TOREG(SR_CORE_GPSDO_ST), B200_GPSDO_ST_NONE);
+//            }
+//        }
     }
 
     ////////////////////////////////////////////////////////////////////

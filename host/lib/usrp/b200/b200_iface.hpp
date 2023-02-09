@@ -27,6 +27,7 @@ const static uint16_t B200MINI_PRODUCT_ID = 0x0021;
 const static uint16_t B205MINI_PRODUCT_ID = 0x0022;
 const static uint16_t B200_PRODUCT_NI_ID  = 0x7813;
 const static uint16_t B210_PRODUCT_NI_ID  = 0x7814;
+//const static uint16_t B210_PRODUCT_NI_ID  = 0x0022;
 const static uint16_t FX3_VID             = 0x04b4;
 const static uint16_t FX3_DEFAULT_PID     = 0x00f3;
 const static uint16_t FX3_REENUM_PID      = 0x00f0;

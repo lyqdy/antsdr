@@ -15,10 +15,8 @@
 if(ENABLE_ANT)
     LIBUHD_APPEND_SOURCES(
             ${CMAKE_CURRENT_SOURCE_DIR}/ant_impl.cpp
-#            ${CMAKE_CURRENT_SOURCE_DIR}/ant_iface.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/ant_io_impl.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/ant_uart.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/ant_cores.cpp
-#            ${CMAKE_CURRENT_SOURCE_DIR}/ant_mb_eeprom.cpp
     )
 endif(ENABLE_ANT)
