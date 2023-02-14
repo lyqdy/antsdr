@@ -40,6 +40,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <uhd/transport/pcie_riffa_zero_copy.hpp>
 
 static const uint8_t B200_FW_COMPAT_NUM_MAJOR = 8;
 static const uint8_t B200_FW_COMPAT_NUM_MINOR = 0;
@@ -134,6 +135,7 @@ public:
     static uhd::usrp::mboard_eeprom_t get_mb_eeprom(uhd::i2c_iface::sptr);
 
 private:
+    fpga_t *_device;
     b200_product_t _product;
     size_t _revision;
     bool _gpsdo_capable;
@@ -177,6 +179,7 @@ private:
     void register_loopback_self_test(uhd::wb_iface::sptr iface);
     void set_mb_eeprom(const uhd::usrp::mboard_eeprom_t&);
     void check_fw_compat(void);
+    void set_mb_eeprom();
     void check_fpga_compat(void);
     uhd::usrp::subdev_spec_t coerce_subdev_spec(const uhd::usrp::subdev_spec_t&);
     void update_subdev_spec(const std::string& tx_rx, const uhd::usrp::subdev_spec_t&);

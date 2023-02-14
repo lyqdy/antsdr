@@ -29,6 +29,8 @@ if(ENABLE_USB)
         ${CMAKE_CURRENT_SOURCE_DIR}/libusb1_zero_copy.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/libusb1_base.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/libusb1_base.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/libpcie_zero_copy.cpp
+
     )
     set_source_files_properties(
         ${CMAKE_CURRENT_SOURCE_DIR}/libusb1_zero_copy.cpp
@@ -85,6 +87,7 @@ if(WIN32)
 else()
     LIBUHD_APPEND_SOURCES(${CMAKE_CURRENT_SOURCE_DIR}/udp_zero_copy.cpp)
     LIBUHD_APPEND_SOURCES(${CMAKE_CURRENT_SOURCE_DIR}/udp_boost_asio_link.cpp)
+
 endif()
 
 #On windows, the boost asio implementation uses the winsock2 library.

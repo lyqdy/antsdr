@@ -23,6 +23,7 @@ UHD_INSTALL(FILES
     vrt_if_packet.hpp
     zero_copy.hpp
     zero_copy_flow_ctrl.hpp
+    pcie_riffa_zero_copy.hpp
     DESTINATION ${INCLUDE_DIR}/uhd/transport
     COMPONENT headers
 )

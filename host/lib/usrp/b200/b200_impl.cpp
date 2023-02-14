@@ -28,6 +28,7 @@
 #include <ctime>
 #include <functional>
 #include <memory>
+#include "riffa.h"
 
 using namespace uhd;
 using namespace uhd::usrp;
@@ -223,76 +224,89 @@ static device_addrs_t b200_find(const device_addr_t& hint)
             return b200_addrs;
     }
 
+    fpga_info_list info;
+    if(fpga_list(&info) != 0){
+        return b200_addrs;
+    }
+    device_addr_t pcie_device;
+    pcie_device["type"] = "ant";
+    pcie_device["id"] = std::to_string(info.id[0]);
+    pcie_device["product"] = "u220-mp";
+    pcie_device["name"] = "ANTSDR";
+    pcie_device["serial"] = std::to_string(info.device_id[0]);
+    b200_addrs.push_back(pcie_device);
+
+    return b200_addrs;
     // Important note:
     // The get device list calls are nested inside the for loop.
     // This allows the usb guts to decontruct when not in use,
     // so that re-enumeration after fw load can occur successfully.
     // This requirement is a courtesy of libusb1.0 on windows.
-    size_t found = 0;
-    for (usb_device_handle::sptr handle : get_b200_device_handles(hint)) {
-        // extract the firmware path for the b200
-        std::string b200_fw_image;
-        try {
-            b200_fw_image = hint.get("fw", B200_FW_FILE_NAME);
-            b200_fw_image =
-                uhd::find_image_path(b200_fw_image, STR(UHD_IMAGES_DIR)); // FIXME
-        } catch (uhd::exception& e) {
-            UHD_LOGGER_WARNING("B200") << e.what();
-            return b200_addrs;
-        }
-        UHD_LOGGER_DEBUG("B200") << "the firmware image: " << b200_fw_image;
-
-        usb_control::sptr control;
-        try {
-            control = usb_control::make(handle, 0);
-        } catch (const uhd::exception&) {
-            continue;
-        } // ignore claimed
-
-        // check if fw was already loaded
-        if (!(handle->firmware_loaded())) {
-            b200_iface::make(control)->load_firmware(b200_fw_image);
-        }
-
-        found++;
-    }
-
-    const auto timeout_time = std::chrono::steady_clock::now()
-                              + std::chrono::milliseconds(REENUMERATION_TIMEOUT_MS);
-    // search for the device until found or timeout
-    while (std::chrono::steady_clock::now() < timeout_time and b200_addrs.empty()
-           and found != 0) {
-        for (usb_device_handle::sptr handle : get_b200_device_handles(hint)) {
-            usb_control::sptr control;
-            try {
-                control = usb_control::make(handle, 0);
-            } catch (const uhd::exception&) {
-                continue;
-            } // ignore claimed
-
-            b200_iface::sptr iface          = b200_iface::make(control);
-            const mboard_eeprom_t mb_eeprom = b200_impl::get_mb_eeprom(iface);
-
-            device_addr_t new_addr;
-            new_addr["type"]   = "b200";
-            new_addr["name"]   = mb_eeprom["name"];
-            new_addr["serial"] = handle->get_serial();
-            try {
-                // Turn the 16-Bit product ID into a string representation
-                new_addr["product"] = B2XX_STR_NAMES[get_b200_product(handle, mb_eeprom)];
-            } catch (const uhd::runtime_error&) {
-                // No problem if this fails -- this is just device discovery, after all.
-                new_addr["product"] = "B2??";
-            }
-
-            // this is a found b200 when the hint serial and name match or blank
-            if ((not hint.has_key("name") or hint["name"] == new_addr["name"])
-                and (not hint.has_key("serial")
-                     or hint["serial"] == new_addr["serial"])) {
-                b200_addrs.push_back(new_addr);
-            }
-        }
-    }
+//    size_t found = 0;
+//    for (usb_device_handle::sptr handle : get_b200_device_handles(hint)) {
+//        // extract the firmware path for the b200
+//        std::string b200_fw_image;
+//        try {
+//            b200_fw_image = hint.get("fw", B200_FW_FILE_NAME);
+//            b200_fw_image =
+//                uhd::find_image_path(b200_fw_image, STR(UHD_IMAGES_DIR)); // F
+//        } catch (uhd::exception& e) {
+//            UHD_LOGGER_WARNING("B200") << e.what();
+//            return b200_addrs;
+//        }
+//        UHD_LOGGER_DEBUG("B200") << "the firmware image: " << b200_fw_image;
+//
+//        usb_control::sptr control;
+//        try {
+//            control = usb_control::make(handle, 0);
+//        } catch (const uhd::exception&) {
+//            continue;
+//        } // ignore claimed
+//
+//        // check if fw was already loaded
+//        if (!(handle->firmware_loaded())) {
+//            b200_iface::make(control)->load_firmware(b200_fw_image);
+//        }
+//
+//        found++;
+//    }
+//
+//    const auto timeout_time = std::chrono::steady_clock::now()
+//                              + std::chrono::milliseconds(REENUMERATION_TIMEOUT_MS);
+//    // search for the device until found or timeout
+//    while (std::chrono::steady_clock::now() < timeout_time and b200_addrs.empty()
+//           and found != 0) {
+//        for (usb_device_handle::sptr handle : get_b200_device_handles(hint)) {
+//            usb_control::sptr control;
+//            try {
+//                control = usb_control::make(handle, 0);
+//            } catch (const uhd::exception&) {
+//                continue;
+//            } // ignore claimed
+//
+//            b200_iface::sptr iface          = b200_iface::make(control);
+//            const mboard_eeprom_t mb_eeprom = b200_impl::get_mb_eeprom(iface);
+//
+//            device_addr_t new_addr;
+//            new_addr["type"]   = "b200";
+//            new_addr["name"]   = mb_eeprom["name"];
+//            new_addr["serial"] = handle->get_serial();
+//            try {
+//                // Turn the 16-Bit product ID into a string representation
+//                new_addr["product"] = B2XX_STR_NAMES[get_b200_product(handle, mb_eeprom)];
+//            } catch (const uhd::runtime_error&) {
+//                // No problem if this fails -- this is just device discovery, after all.
+//                new_addr["product"] = "B2??";
+//            }
+//
+//            // this is a found b200 when the hint serial and name match or blank
+//            if ((not hint.has_key("name") or hint["name"] == new_addr["name"])
+//                and (not hint.has_key("serial")
+//                     or hint["serial"] == new_addr["serial"])) {
+//                b200_addrs.push_back(new_addr);
+//            }
+//        }
+//    }
 
     return b200_addrs;
 }
@@ -344,123 +358,145 @@ b200_impl::b200_impl(
     _type                 = device::USRP;
     const fs_path mb_path = "/mboards/0";
 
-    // try to match the given device address with something on the USB bus
-    uint16_t vid       = B200_VENDOR_ID;
-    uint16_t pid       = B200_PRODUCT_ID;
-    bool specified_vid = false;
-    bool specified_pid = false;
-
-    if (device_addr.has_key("vid")) {
-        vid           = uhd::cast::hexstr_cast<uint16_t>(device_addr.get("vid"));
-        specified_vid = true;
+    _device = fpga_open(0);
+    if(_device == nullptr)
+    {
+        UHD_LOGGER_INFO("U220")
+        <<"Open pcie device failed!";
     }
+    UHD_LOGGER_INFO("U220")
+        << "Device " << _device;
+    mboard_eeprom_t mb_eeprom;
+    mb_eeprom["magic"] = "45570";
+    mb_eeprom["eeprom_revision"] = "v0.1";
+    mb_eeprom["eeprom_compat"] = "1";
+    mb_eeprom["product"] = "MICROPHASE";
+    mb_eeprom["name"] = "ANT";
+    mb_eeprom["serial"] = device_addr["serial"];
+    _tree->create<mboard_eeprom_t>(mb_path / "eeprom")
+            .set(mb_eeprom)
+            .add_coerced_subscriber(
+                    boost::bind(&b200_impl::set_mb_eeprom, this)
+            );
 
-    if (device_addr.has_key("pid")) {
-        pid           = uhd::cast::hexstr_cast<uint16_t>(device_addr.get("pid"));
-        specified_pid = true;
-    }
-
-    std::vector<usb_device_handle::vid_pid_pair_t>
-        vid_pid_pair_list; // search list for devices.
-
-    // Search only for specified VID and PID if both specified
-    if (specified_vid && specified_pid) {
-        vid_pid_pair_list.push_back(usb_device_handle::vid_pid_pair_t(vid, pid));
-    }
-    // Search for all supported PIDs limited to specified VID if only VID specified
-    else if (specified_vid) {
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(vid, B200_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(vid, B200MINI_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(vid, B205MINI_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(vid, B200_PRODUCT_NI_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(vid, B210_PRODUCT_NI_ID));
-    }
-    // Search for all supported VIDs limited to specified PID if only PID specified
-    else if (specified_pid) {
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, pid));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, pid));
-    }
-    // Search for all supported devices if neither VID nor PID specified
-    else {
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B200_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B200MINI_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B205MINI_PRODUCT_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, B200_PRODUCT_NI_ID));
-        vid_pid_pair_list.push_back(
-            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, B210_PRODUCT_NI_ID));
-    }
-
-    std::vector<usb_device_handle::sptr> device_list =
-        usb_device_handle::get_device_list(vid_pid_pair_list);
-
-    // locate the matching handle in the device list
-    for (usb_device_handle::sptr dev_handle : device_list) {
-        try {
-            if (dev_handle->get_serial() == device_addr["serial"]) {
-                handle = dev_handle;
-                break;
-            }
-        } catch (const uhd::exception&) {
-            continue;
-        }
-    }
-    UHD_ASSERT_THROW(handle.get() != NULL); // better be found
-
-    // create control objects
-    usb_control::sptr control = usb_control::make(handle, 0);
-    _iface                    = b200_iface::make(control);
-    this->check_fw_compat(); // check after making
+    _gpsdo_capable = 0;
+//    // try to match the given device address with something on the USB bus
+//    uint16_t vid       = B200_VENDOR_ID;
+//    uint16_t pid       = B200_PRODUCT_ID;
+//    bool specified_vid = false;
+//    bool specified_pid = false;
+//
+//    if (device_addr.has_key("vid")) {
+//        vid           = uhd::cast::hexstr_cast<uint16_t>(device_addr.get("vid"));
+//        specified_vid = true;
+//    }
+//
+//    if (device_addr.has_key("pid")) {
+//        pid           = uhd::cast::hexstr_cast<uint16_t>(device_addr.get("pid"));
+//        specified_pid = true;
+//    }
+//
+//    std::vector<usb_device_handle::vid_pid_pair_t>
+//        vid_pid_pair_list; // search list for devices.
+//
+//    // Search only for specified VID and PID if both specified
+//    if (specified_vid && specified_pid) {
+//        vid_pid_pair_list.push_back(usb_device_handle::vid_pid_pair_t(vid, pid));
+//    }
+//    // Search for all supported PIDs limited to specified VID if only VID specified
+//    else if (specified_vid) {
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(vid, B200_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(vid, B200MINI_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(vid, B205MINI_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(vid, B200_PRODUCT_NI_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(vid, B210_PRODUCT_NI_ID));
+//    }
+//    // Search for all supported VIDs limited to specified PID if only PID specified
+//    else if (specified_pid) {
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, pid));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, pid));
+//    }
+//    // Search for all supported devices if neither VID nor PID specified
+//    else {
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B200_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B200MINI_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_ID, B205MINI_PRODUCT_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, B200_PRODUCT_NI_ID));
+//        vid_pid_pair_list.push_back(
+//            usb_device_handle::vid_pid_pair_t(B200_VENDOR_NI_ID, B210_PRODUCT_NI_ID));
+//    }
+//
+//    std::vector<usb_device_handle::sptr> device_list =
+//        usb_device_handle::get_device_list(vid_pid_pair_list);
+//
+//    // locate the matching handle in the device list
+//    for (usb_device_handle::sptr dev_handle : device_list) {
+//        try {
+//            if (dev_handle->get_serial() == device_addr["serial"]) {
+//                handle = dev_handle;
+//                break;
+//            }
+//        } catch (const uhd::exception&) {
+//            continue;
+//        }
+//    }
+//    UHD_ASSERT_THROW(handle.get() != NULL); // better be found
+//
+//    // create control objects
+//    usb_control::sptr control = usb_control::make(handle, 0);
+//    _iface                    = b200_iface::make(control);
+//    this->check_fw_compat(); // check after making
 
     ////////////////////////////////////////////////////////////////////
     // setup the mboard eeprom
     ////////////////////////////////////////////////////////////////////
-    mboard_eeprom_t mb_eeprom = get_mb_eeprom(_iface);
-    std::vector<std::string>keys_vec,vals_vec;
-    keys_vec.push_back("product");
-    vals_vec.push_back("30740");
-    mb_eeprom[keys_vec[0]] = vals_vec[0];
-    _tree->create<mboard_eeprom_t>(mb_path / "eeprom")
-        .set(mb_eeprom)
-        .add_coerced_subscriber(
-            std::bind(&b200_impl::set_mb_eeprom, this, std::placeholders::_1));
+//    mboard_eeprom_t mb_eeprom = get_mb_eeprom(_iface);
+//    std::vector<std::string>keys_vec,vals_vec;
+//    keys_vec.push_back("product");
+//    vals_vec.push_back("30740");
+//    mb_eeprom[keys_vec[0]] = vals_vec[0];
+//    _tree->create<mboard_eeprom_t>(mb_path / "eeprom")
+//        .set(mb_eeprom)
+//        .add_coerced_subscriber(
+//            std::bind(&b200_impl::set_mb_eeprom, this, std::placeholders::_1));
 
     ////////////////////////////////////////////////////////////////////
     // Identify the device type
     ////////////////////////////////////////////////////////////////////
-    std::string default_file_name;
-    std::string product_name;
-    try {
-        // This will throw if the product ID is invalid:
-        _product          = get_b200_product(handle, mb_eeprom);
-        default_file_name = B2XX_FPGA_FILE_NAME.get(_product);
-        product_name      = B2XX_STR_NAMES.get(_product);
-    } catch (const uhd::runtime_error& e) {
-        // The only reason we may let this pass is if the user specified
-        // the FPGA file name:
-        if (not device_addr.has_key("fpga")) {
-            throw e;
-        }
-        // In this case, we must provide a default product name:
-        product_name = "B200?";
-    }
-    if (not mb_eeprom["revision"].empty()) {
-        _revision = boost::lexical_cast<size_t>(mb_eeprom["revision"]);
-    }
+//    std::string default_file_name;
+//    std::string product_name;
+//    try {
+//        // This will throw if the product ID is invalid:
+//        _product          = get_b200_product(handle, mb_eeprom);
+//        default_file_name = B2XX_FPGA_FILE_NAME.get(_product);
+//        product_name      = B2XX_STR_NAMES.get(_product);
+//    } catch (const uhd::runtime_error& e) {
+//        // The only reason we may let this pass is if the user specified
+//        // the FPGA file name:
+//        if (not device_addr.has_key("fpga")) {
+//            throw e;
+//        }
+//        // In this case, we must provide a default product name:
+//        product_name = "B200?";
+//    }
+//    if (not mb_eeprom["revision"].empty()) {
+//        _revision = boost::lexical_cast<size_t>(mb_eeprom["revision"]);
+//    }
+//
+//    UHD_LOGGER_INFO("B200") << "Detected Device: " << B2XX_STR_NAMES[_product];
 
-    UHD_LOGGER_INFO("B200") << "Detected Device: " << B2XX_STR_NAMES[_product];
-
-    _gpsdo_capable = (not(_product == B200MINI or _product == B205MINI));
+//    _gpsdo_capable = (not(_product == B200MINI or _product == B205MINI));
 
     ////////////////////////////////////////////////////////////////////
     // Set up frontend mapping
@@ -490,42 +526,55 @@ b200_impl::b200_impl(
     // Load the FPGA image, then reset GPIF
     ////////////////////////////////////////////////////////////////////
     // extract the FPGA path for the B200
-    std::string b200_fpga_image = find_image_path(
-        device_addr.has_key("fpga") ? device_addr["fpga"] : default_file_name);
-
-    uint32_t status = _iface->load_fpga(b200_fpga_image);
-
-    if (status != 0) {
-        throw uhd::runtime_error(str(boost::format("fx3 is in state %1%") % status));
-    }
-
-    _iface->reset_gpif();
+//    std::string b200_fpga_image = find_image_path(
+//        device_addr.has_key("fpga") ? device_addr["fpga"] : default_file_name);
+//
+//    uint32_t status = _iface->load_fpga(b200_fpga_image);
+//
+//    if (status != 0) {
+//        throw uhd::runtime_error(str(boost::format("fx3 is in state %1%") % status));
+//    }
+//
+//    _iface->reset_gpif();
 
     ////////////////////////////////////////////////////////////////////
     // Create control transport
     ////////////////////////////////////////////////////////////////////
-    uint8_t usb_speed = _iface->get_usb_speed();
-    UHD_LOGGER_INFO("B200") << "Operating over USB " << (int)usb_speed << ".";
-    const std::string min_frame_size = (usb_speed == 3) ? "1024" : "512";
+//    uint8_t usb_speed = _iface->get_usb_speed();
+//    UHD_LOGGER_INFO("B200") << "Operating over USB " << (int)usb_speed << ".";
+//    const std::string min_frame_size = (usb_speed == 3) ? "1024" : "512";
 
-    device_addr_t ctrl_xport_args;
-    ctrl_xport_args["recv_frame_size"] = min_frame_size;
-    ctrl_xport_args["num_recv_frames"] = "16";
-    ctrl_xport_args["send_frame_size"] = min_frame_size;
-    ctrl_xport_args["num_send_frames"] = "16";
+//    device_addr_t ctrl_xport_args;
+//    ctrl_xport_args["recv_frame_size"] = min_frame_size;
+//    ctrl_xport_args["num_recv_frames"] = "16";
+//    ctrl_xport_args["send_frame_size"] = min_frame_size;
+//    ctrl_xport_args["num_send_frames"] = "16";
 
-    // This may throw a uhd::usb_error, which will be caught by b200_make().
-    _ctrl_transport = usb_zero_copy::make(handle,
-        B200_USB_CTRL_RECV_INTERFACE,
-        B200_USB_CTRL_RECV_ENDPOINT, // interface, endpoint
-        B200_USB_CTRL_SEND_INTERFACE,
-        B200_USB_CTRL_SEND_ENDPOINT, // interface, endpoint
-        ctrl_xport_args);
-    while (_ctrl_transport->get_recv_buff(0.0)) {
-    } // flush ctrl xport
-    _tree->create<double>(mb_path / "link_max_rate")
-        .set((usb_speed == 3) ? B200_MAX_RATE_USB3 : B200_MAX_RATE_USB2);
-    _tree->create<int>(mb_path / "usb_version").set(usb_speed);
+    zero_copy_xport_params default_buff_args;
+    default_buff_args.send_frame_size = 8192;
+    default_buff_args.recv_frame_size = 8192;
+    default_buff_args.num_send_frames = 16;
+    default_buff_args.num_recv_frames = 16;
+    default_buff_args.send_buff_size = 10e6;
+    default_buff_args.recv_buff_size = 10e6;
+
+    device_addr_t filtered_hints;
+    pcie_riffa_zero_copy::buff_params ignored_params;
+    _ctrl_transport = pcie_riffa_zero_copy::make(_device,0,default_buff_args,ignored_params,filtered_hints);
+
+//    while(_ctrl_transport->get_recv_buff(0.1)){}
+//    // This may throw a uhd::usb_error, which will be caught by b200_make().
+//    _ctrl_transport = usb_zero_copy::make(handle,
+//        B200_USB_CTRL_RECV_INTERFACE,
+//        B200_USB_CTRL_RECV_ENDPOINT, // interface, endpoint
+//        B200_USB_CTRL_SEND_INTERFACE,
+//        B200_USB_CTRL_SEND_ENDPOINT, // interface, endpoint
+//        ctrl_xport_args);
+//    while (_ctrl_transport->get_recv_buff(0.0)) {
+//    } // flush ctrl xport
+//    _tree->create<double>(mb_path / "link_max_rate")
+//        .set((usb_speed == 3) ? B200_MAX_RATE_USB3 : B200_MAX_RATE_USB2);
+//    _tree->create<int>(mb_path / "usb_version").set(usb_speed);
 
     ////////////////////////////////////////////////////////////////////
     // Async task structure
@@ -592,7 +641,7 @@ b200_impl::b200_impl(
 //            }
 //        }
     }
-
+    std::string product_name = "B210";
     ////////////////////////////////////////////////////////////////////
     // Initialize the properties tree
     ////////////////////////////////////////////////////////////////////
@@ -607,55 +656,57 @@ b200_impl::b200_impl(
     // be in the FPGAs buffers doesn't get pulled into the transport
     // before being cleared.
     ////////////////////////////////////////////////////////////////////
-    device_addr_t data_xport_args;
-    const int max_transfer = usb_speed == 3 ? 1024 : 512;
-    int recv_frame_size =
-        device_addr.cast<int>("recv_frame_size", B200_USB_DATA_DEFAULT_FRAME_SIZE);
-    // Check that recv_frame_size limits.
-    if (recv_frame_size < B200_USB_DATA_MIN_RECV_FRAME_SIZE) {
-        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
-                                   << " is too small. It will be set to "
-                                   << B200_USB_DATA_MIN_RECV_FRAME_SIZE << ".";
-        recv_frame_size = B200_USB_DATA_MIN_RECV_FRAME_SIZE;
-    } else if (recv_frame_size > B200_USB_DATA_MAX_RECV_FRAME_SIZE) {
-        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
-                                   << " is too large. It will be set to "
-                                   << B200_USB_DATA_MAX_RECV_FRAME_SIZE << ".";
-        recv_frame_size = B200_USB_DATA_MAX_RECV_FRAME_SIZE;
-    } else if (recv_frame_size % max_transfer == 0 or recv_frame_size % 8 != 0) {
-        // The Cypress FX3 does not properly handle recv_frame_sizes that are
-        // aligned to the maximum transfer size and the FPGA code requires the
-        // data to be aligned to 8 byte words.  The code below coerces the
-        // recv_frame_size to a value that is a multiple of 8 bytes, not
-        // a multiple of the maximum transfer size, and aligned to 24 bytes
-        // to support full 8 byte word alignment for sc8, sc12, and sc16 data
-        // types.
+//    device_addr_t data_xport_args;
+//    const int max_transfer = usb_speed == 3 ? 1024 : 512;
+//    int recv_frame_size =
+//        device_addr.cast<int>("recv_frame_size", B200_USB_DATA_DEFAULT_FRAME_SIZE);
+//    // Check that recv_frame_size limits.
+//    if (recv_frame_size < B200_USB_DATA_MIN_RECV_FRAME_SIZE) {
+//        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
+//                                   << " is too small. It will be set to "
+//                                   << B200_USB_DATA_MIN_RECV_FRAME_SIZE << ".";
+//        recv_frame_size = B200_USB_DATA_MIN_RECV_FRAME_SIZE;
+//    } else if (recv_frame_size > B200_USB_DATA_MAX_RECV_FRAME_SIZE) {
+//        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
+//                                   << " is too large. It will be set to "
+//                                   << B200_USB_DATA_MAX_RECV_FRAME_SIZE << ".";
+//        recv_frame_size = B200_USB_DATA_MAX_RECV_FRAME_SIZE;
+//    } else if (recv_frame_size % max_transfer == 0 or recv_frame_size % 8 != 0) {
+//        // The Cypress FX3 does not properly handle recv_frame_sizes that are
+//        // aligned to the maximum transfer size and the FPGA code requires the
+//        // data to be aligned to 8 byte words.  The code below coerces the
+//        // recv_frame_size to a value that is a multiple of 8 bytes, not
+//        // a multiple of the maximum transfer size, and aligned to 24 bytes
+//        // to support full 8 byte word alignment for sc8, sc12, and sc16 data
+//        // types.
+//
+//        // Align to 8 byte words
+//        recv_frame_size += 8 - (recv_frame_size % 8);
+//        if (recv_frame_size % max_transfer == 0) {
+//            recv_frame_size = (((recv_frame_size - 16) / 24) * 24) + 16;
+//        }
+//        UHD_LOGGER_WARNING("B200")
+//            << "The recv_frame_size must be a multiple of 8 bytes and not a multiple of "
+//            << max_transfer << " bytes.  Requested recv_frame_size of "
+//            << device_addr["recv_frame_size"] << " coerced to " << recv_frame_size << ".";
+//    }
+//
+//    data_xport_args["recv_frame_size"] = std::to_string(recv_frame_size);
+//    data_xport_args["num_recv_frames"] = device_addr.get("num_recv_frames", "16");
+//    data_xport_args["send_frame_size"] = device_addr.get(
+//        "send_frame_size", std::to_string(B200_USB_DATA_DEFAULT_FRAME_SIZE));
+//    data_xport_args["num_send_frames"] = device_addr.get("num_send_frames", "16");
+//
+//    // This may throw a uhd::usb_error, which will be caught by b200_make().
+//    _data_transport = usb_zero_copy::make(handle, // identifier
+//        B200_USB_DATA_RECV_INTERFACE,
+//        B200_USB_DATA_RECV_ENDPOINT, // interface, endpoint
+//        B200_USB_DATA_SEND_INTERFACE,
+//        B200_USB_DATA_SEND_ENDPOINT, // interface, endpoint
+//        data_xport_args // param hints
+//    );
 
-        // Align to 8 byte words
-        recv_frame_size += 8 - (recv_frame_size % 8);
-        if (recv_frame_size % max_transfer == 0) {
-            recv_frame_size = (((recv_frame_size - 16) / 24) * 24) + 16;
-        }
-        UHD_LOGGER_WARNING("B200")
-            << "The recv_frame_size must be a multiple of 8 bytes and not a multiple of "
-            << max_transfer << " bytes.  Requested recv_frame_size of "
-            << device_addr["recv_frame_size"] << " coerced to " << recv_frame_size << ".";
-    }
-
-    data_xport_args["recv_frame_size"] = std::to_string(recv_frame_size);
-    data_xport_args["num_recv_frames"] = device_addr.get("num_recv_frames", "16");
-    data_xport_args["send_frame_size"] = device_addr.get(
-        "send_frame_size", std::to_string(B200_USB_DATA_DEFAULT_FRAME_SIZE));
-    data_xport_args["num_send_frames"] = device_addr.get("num_send_frames", "16");
-
-    // This may throw a uhd::usb_error, which will be caught by b200_make().
-    _data_transport = usb_zero_copy::make(handle, // identifier
-        B200_USB_DATA_RECV_INTERFACE,
-        B200_USB_DATA_RECV_ENDPOINT, // interface, endpoint
-        B200_USB_DATA_SEND_INTERFACE,
-        B200_USB_DATA_SEND_ENDPOINT, // interface, endpoint
-        data_xport_args // param hints
-    );
+    _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
     while (_data_transport->get_recv_buff(0.0)) {
     } // flush ctrl xport
     _demux = recv_packet_demuxer_3000::make(_data_transport);
@@ -1529,4 +1580,10 @@ sensor_value_t b200_impl::get_fe_pll_locked(const bool is_tx)
     const uint32_t st = _local_ctrl->peek32(RB32_CORE_PLL);
     const bool locked = is_tx ? ((st & 0x1) > 0) : ((st & 0x2) > 0);
     return sensor_value_t("LO", locked, "locked", "unlocked");
+}
+
+void b200_impl::set_mb_eeprom()
+{
+    /* we need do no things */
+
 }
