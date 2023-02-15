@@ -23,7 +23,7 @@ using namespace uhd;
 using namespace uhd::usrp;
 using namespace uhd::transport;
 
-static const double ACK_TIMEOUT     = 2.0; // supposed to be worst case practical timeout
+static const double ACK_TIMEOUT     = 2; // supposed to be worst case practical timeout
 static const double MASSIVE_TIMEOUT = 10.0; // for when we wait on a timed command
 static const size_t SR_READBACK = 32;
 
@@ -180,8 +180,6 @@ private:
     UHD_INLINE uint64_t wait_for_ack(const bool readback)
     {
         while (readback or (_outstanding_seqs.size() >= _resp_queue_size)) {
-            UHD_LOGGER_INFO("PCIE")
-            <<"wait_for_ack while";
             // get seq to ack from outstanding packets list
             UHD_ASSERT_THROW(not _outstanding_seqs.empty());
             const size_t seq_to_ack = _outstanding_seqs.front();
@@ -196,11 +194,7 @@ private:
 
             // get buffer from response endpoint - or die in timeout
             if (_resp_xport) {
-                UHD_LOGGER_INFO("PCIE")
-                        <<"wait_for_ack _resp_xport->get_recv_buff before";
                 buff = _resp_xport->get_recv_buff(_timeout);
-                UHD_LOGGER_INFO("PCIE")
-                        <<"wait_for_ack _resp_xport->get_recv_buff after";
                 try {
                     UHD_ASSERT_THROW(bool(buff));
                     UHD_ASSERT_THROW(buff->size() > 0);
@@ -232,8 +226,6 @@ private:
                      * If a message couldn't be received within a given timeout
                      * --> throw AssertionError!
                      */
-                    UHD_LOGGER_INFO("PCIE")
-                            <<"wait_for_ack while while";
                     accum_timeout += short_timeout;
                     UHD_ASSERT_THROW(accum_timeout < _timeout);
                 }

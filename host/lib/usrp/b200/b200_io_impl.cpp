@@ -502,9 +502,11 @@ void b200_impl::handle_overflow(const size_t radio_index)
         _demux->realloc_sid(B200_RX_DATA0_SID);
         _demux->realloc_sid(B200_RX_DATA1_SID);
         // flush actual transport
+        UHD_LOGGER_INFO("PCIE")
+                <<"get_recv_buff handle_overflow before";
         while (_data_transport->get_recv_buff(0.001)) {
             UHD_LOGGER_INFO("PCIE")
-            <<"get_recv_buff handle_overflow";
+            <<"get_recv_buff handle_overflow after";
         }
         // restart streaming
         if (in_continuous_streaming_mode) {
@@ -517,9 +519,11 @@ void b200_impl::handle_overflow(const size_t radio_index)
             // my_streamer->issue_stream_cmd(stream_cmd);
         }
     } else {
+        UHD_LOGGER_INFO("PCIE")
+                <<"get_recv_buff handle_overflow else before";
         while (_data_transport->get_recv_buff(0.001)) {
             UHD_LOGGER_INFO("PCIE")
-                    <<"get_recv_buff handle_overflow else";
+                    <<"get_recv_buff handle_overflow else after";
         }
         // FIXME: temporarily remove the overflow handling that re-issues a stream
         //        command. This will avoid an issue that gets the b210 in a bad state.
