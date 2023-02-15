@@ -1194,6 +1194,9 @@ void b200_impl::setup_radio(const size_t dspno)
                 .set(perif.user_settings);
         }
     }
+
+    UHD_LOGGER_INFO("U220") <<
+    "endness";
 }
 
 /***********************************************************************
