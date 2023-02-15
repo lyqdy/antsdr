@@ -588,8 +588,6 @@ b200_impl::b200_impl(
     }
     _async_task = uhd::msg_task::make(std::bind(
         &b200_impl::handle_async_task, this, _ctrl_transport, _async_task_data));
-    UHD_LOGGER_INFO("U220") <<
-                            "local _async_task pass";
     ////////////////////////////////////////////////////////////////////
     // Local control endpoint
     ////////////////////////////////////////////////////////////////////
@@ -599,9 +597,7 @@ b200_impl::b200_impl(
         B200_LOCAL_CTRL_SID);
     _local_ctrl->hold_task(_async_task);
     _async_task_data->local_ctrl = _local_ctrl; // weak
-//    this->check_fpga_compat();
-    UHD_LOGGER_INFO("U220") <<
-    "local radio_ctrl_core_3000 pass";
+    this->check_fpga_compat();
     /* Initialize the GPIOs, set the default bandsels to the lower range. Note
      * that calling update_bandsel calls update_gpio_state(). */
     update_bandsel("RX", 800e6);
@@ -610,8 +606,6 @@ b200_impl::b200_impl(
     ////////////////////////////////////////////////////////////////////
     // Create the GPSDO control
     ////////////////////////////////////////////////////////////////////
-    UHD_LOGGER_INFO("_gpsdo_capable") <<
-                            "local _gpsdo_capable pass";
     if (_gpsdo_capable) {
         UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
         try {
@@ -962,7 +956,6 @@ b200_impl::b200_impl(
 
 b200_impl::~b200_impl(void)
 {
-    fpga_reset(_device);
     UHD_SAFE_CALL(_async_task.reset();)
 }
 
