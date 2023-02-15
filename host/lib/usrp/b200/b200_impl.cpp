@@ -957,6 +957,7 @@ b200_impl::b200_impl(
 
 b200_impl::~b200_impl(void)
 {
+    fpga_reset(_device);
     UHD_SAFE_CALL(_async_task.reset();)
 }
 
