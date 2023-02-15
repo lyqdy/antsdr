@@ -268,7 +268,6 @@ private:
                     str(boost::format("Radio ctrl (%s) packet parse error - %s") % _name
                         % ex.what()));
             }
-
             // return the readback value
             if (readback and _outstanding_seqs.empty()) {
                 const uint64_t hi =
@@ -277,13 +276,10 @@ private:
                 const uint64_t lo =
                     (_bige) ? uhd::ntohx(pkt[packet_info.num_header_words32 + 1])
                             : uhd::wtohx(pkt[packet_info.num_header_words32 + 1]);
-                UHD_LOGGER_INFO("PCIE")
-                        <<"wait_for_ack return " << std::hex << ((hi << 32) | lo);
+
                 return ((hi << 32) | lo);
             }
         }
-        UHD_LOGGER_INFO("PCIE")
-                <<"wait_for_ack return 0";
         return 0;
     }
 

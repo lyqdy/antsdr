@@ -107,8 +107,6 @@ public:
         UHD_LOGGER_TRACE("PCIE")
         << boost::format("Creating PCIE transport to device chan %d")  % chan;
 
-        UHD_LOGGER_INFO("PCIE")
-                << boost::format("Creating PCIE transport to device chan %d")  % chan;
         for(size_t i = 0;i < get_num_recv_frames(); i++)
         {
             _mrb_pool.push_back(std::make_shared<libpcie_zero_copy_asio_mrb>(
@@ -120,8 +118,7 @@ public:
             _msb_pool.push_back(std::make_shared<libpcie_zero_copy_asio_msb>(
                     fpga,chan,_send_buffer_pool->at(i),get_send_frame_size()));
         }
-        UHD_LOGGER_INFO("PCIE")
-                << boost::format("_mrb_pool %d  _msb_pool %d")  % _mrb_pool.size() % _msb_pool.size();
+
     }
 
     managed_recv_buffer::sptr get_recv_buff(double timeout) override
