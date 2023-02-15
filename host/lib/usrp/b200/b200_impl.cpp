@@ -554,8 +554,8 @@ b200_impl::b200_impl(
     zero_copy_xport_params default_buff_args;
     default_buff_args.send_frame_size = 48;
     default_buff_args.recv_frame_size = 48;
-    default_buff_args.num_send_frames = 16;
-    default_buff_args.num_recv_frames = 16;
+    default_buff_args.num_send_frames = 1;
+    default_buff_args.num_recv_frames = 1;
     default_buff_args.send_buff_size = 10e6;
     default_buff_args.recv_buff_size = 10e6;
 

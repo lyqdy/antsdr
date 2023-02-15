@@ -45,6 +45,8 @@ struct recv_packet_demuxer_3000 : std::enable_shared_from_this<recv_packet_demux
             const auto delta = exit_time - std::chrono::high_resolution_clock::now();
             const double new_timeout =
                 std::chrono::duration_cast<std::chrono::duration<double>>(delta).count();
+            UHD_LOGGER_INFO("PCIE")
+                    <<"recv_packet_demuxer_3000 in";
             if (new_timeout < 0.0) {
                 break;
             }
