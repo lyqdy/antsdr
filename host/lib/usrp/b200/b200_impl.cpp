@@ -649,61 +649,6 @@ b200_impl::b200_impl(
     _tree->create<std::string>(mb_path / "codename")
         .set((_product == B200MINI or _product == B205MINI) ? "Pixie" : "Sasquatch");
 
-    ////////////////////////////////////////////////////////////////////
-    // Create data transport
-    // This happens after FPGA ctrl instantiated so any junk that might
-    // be in the FPGAs buffers doesn't get pulled into the transport
-    // before being cleared.
-    ////////////////////////////////////////////////////////////////////
-//    device_addr_t data_xport_args;
-//    const int max_transfer = usb_speed == 3 ? 1024 : 512;
-//    int recv_frame_size =
-//        device_addr.cast<int>("recv_frame_size", B200_USB_DATA_DEFAULT_FRAME_SIZE);
-//    // Check that recv_frame_size limits.
-//    if (recv_frame_size < B200_USB_DATA_MIN_RECV_FRAME_SIZE) {
-//        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
-//                                   << " is too small. It will be set to "
-//                                   << B200_USB_DATA_MIN_RECV_FRAME_SIZE << ".";
-//        recv_frame_size = B200_USB_DATA_MIN_RECV_FRAME_SIZE;
-//    } else if (recv_frame_size > B200_USB_DATA_MAX_RECV_FRAME_SIZE) {
-//        UHD_LOGGER_WARNING("B200") << "Requested recv_frame_size of " << recv_frame_size
-//                                   << " is too large. It will be set to "
-//                                   << B200_USB_DATA_MAX_RECV_FRAME_SIZE << ".";
-//        recv_frame_size = B200_USB_DATA_MAX_RECV_FRAME_SIZE;
-//    } else if (recv_frame_size % max_transfer == 0 or recv_frame_size % 8 != 0) {
-//        // The Cypress FX3 does not properly handle recv_frame_sizes that are
-//        // aligned to the maximum transfer size and the FPGA code requires the
-//        // data to be aligned to 8 byte words.  The code below coerces the
-//        // recv_frame_size to a value that is a multiple of 8 bytes, not
-//        // a multiple of the maximum transfer size, and aligned to 24 bytes
-//        // to support full 8 byte word alignment for sc8, sc12, and sc16 data
-//        // types.
-//
-//        // Align to 8 byte words
-//        recv_frame_size += 8 - (recv_frame_size % 8);
-//        if (recv_frame_size % max_transfer == 0) {
-//            recv_frame_size = (((recv_frame_size - 16) / 24) * 24) + 16;
-//        }
-//        UHD_LOGGER_WARNING("B200")
-//            << "The recv_frame_size must be a multiple of 8 bytes and not a multiple of "
-//            << max_transfer << " bytes.  Requested recv_frame_size of "
-//            << device_addr["recv_frame_size"] << " coerced to " << recv_frame_size << ".";
-//    }
-//
-//    data_xport_args["recv_frame_size"] = std::to_string(recv_frame_size);
-//    data_xport_args["num_recv_frames"] = device_addr.get("num_recv_frames", "16");
-//    data_xport_args["send_frame_size"] = device_addr.get(
-//        "send_frame_size", std::to_string(B200_USB_DATA_DEFAULT_FRAME_SIZE));
-//    data_xport_args["num_send_frames"] = device_addr.get("num_send_frames", "16");
-//
-//    // This may throw a uhd::usb_error, which will be caught by b200_make().
-//    _data_transport = usb_zero_copy::make(handle, // identifier
-//        B200_USB_DATA_RECV_INTERFACE,
-//        B200_USB_DATA_RECV_ENDPOINT, // interface, endpoint
-//        B200_USB_DATA_SEND_INTERFACE,
-//        B200_USB_DATA_SEND_ENDPOINT, // interface, endpoint
-//        data_xport_args // param hints
-//    );
     default_buff_args.send_frame_size = 8192;
     default_buff_args.recv_frame_size = 8192;
     _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
