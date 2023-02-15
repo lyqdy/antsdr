@@ -551,8 +551,8 @@ b200_impl::b200_impl(
 //    ctrl_xport_args["num_send_frames"] = "16";
 
     zero_copy_xport_params default_buff_args;
-    default_buff_args.send_frame_size = 8192;
-    default_buff_args.recv_frame_size = 8192;
+    default_buff_args.send_frame_size = 48;
+    default_buff_args.recv_frame_size = 48;
     default_buff_args.num_send_frames = 16;
     default_buff_args.num_recv_frames = 16;
     default_buff_args.send_buff_size = 10e6;
@@ -705,7 +705,8 @@ b200_impl::b200_impl(
 //        B200_USB_DATA_SEND_ENDPOINT, // interface, endpoint
 //        data_xport_args // param hints
 //    );
-
+    default_buff_args.send_frame_size = 8192;
+    default_buff_args.recv_frame_size = 8192;
     _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
     while (_data_transport->get_recv_buff(0.0)) {
     } // flush ctrl xport

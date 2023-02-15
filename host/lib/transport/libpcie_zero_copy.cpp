@@ -223,5 +223,6 @@ pcie_riffa_zero_copy::sptr pcie_riffa_zero_copy::make(fpga_t *device, const int 
     libpcie_zero_copy_asio_impl::sptr pcie_trans(
             new libpcie_zero_copy_asio_impl(device,channel,xport_params));
 
+
     return pcie_trans;
 }
