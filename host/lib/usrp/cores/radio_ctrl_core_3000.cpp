@@ -286,7 +286,7 @@ private:
                     (_bige) ? uhd::ntohx(pkt[packet_info.num_header_words32 + 1])
                             : uhd::wtohx(pkt[packet_info.num_header_words32 + 1]);
                 UHD_LOGGER_INFO("PCIE")
-                        <<"wait_for_ack return " << ((hi << 32) | lo);
+                        <<"wait_for_ack return " << std::hex << ((hi << 32) | lo);
                 return ((hi << 32) | lo);
             }
         }
