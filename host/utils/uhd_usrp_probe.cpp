@@ -432,6 +432,8 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
     rfnoc::rfnoc_graph::sptr graph;
     try {
         graph = rfnoc::rfnoc_graph::make(vm["args"].as<std::string>());
+        std::cout << "try rfnoc_graph make" <<std::endl;
+
     } catch (uhd::key_error&) {
         // pass
     }
@@ -502,6 +504,6 @@ int UHD_SAFE_MAIN(int argc, char* argv[])
         }
         std::cout << make_border(device_pp_string) << std::endl;
     }
-
+    std::cout << "in there" <<std::endl;
     return EXIT_SUCCESS;
 }
