@@ -364,6 +364,7 @@ b200_impl::b200_impl(
         UHD_LOGGER_INFO("U220")
         <<"Open pcie device failed!";
     }
+    fpga_reset(_device);
     UHD_LOGGER_INFO("U220")
         << "Device " << _device;
     mboard_eeprom_t mb_eeprom;
