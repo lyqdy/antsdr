@@ -97,6 +97,9 @@ struct recv_packet_demuxer_3000 : std::enable_shared_from_this<recv_packet_demux
         boost::mutex::scoped_lock l(mutex);
         while (not _queues[sid].empty()) // allocated and clears if already allocated
         {
+            UHD_LOGGER_INFO("PCIE")
+            <<"realloc_sid while";
+
             _queues[sid].pop();
         }
     }

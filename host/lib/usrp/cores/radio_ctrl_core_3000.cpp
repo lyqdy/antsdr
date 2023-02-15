@@ -180,6 +180,8 @@ private:
     UHD_INLINE uint64_t wait_for_ack(const bool readback)
     {
         while (readback or (_outstanding_seqs.size() >= _resp_queue_size)) {
+            UHD_LOGGER_INFO("PCIE")
+            <<"wait_for_ack while";
             // get seq to ack from outstanding packets list
             UHD_ASSERT_THROW(not _outstanding_seqs.empty());
             const size_t seq_to_ack = _outstanding_seqs.front();
@@ -226,6 +228,8 @@ private:
                      * If a message couldn't be received within a given timeout
                      * --> throw AssertionError!
                      */
+                    UHD_LOGGER_INFO("PCIE")
+                            <<"wait_for_ack while while";
                     accum_timeout += short_timeout;
                     UHD_ASSERT_THROW(accum_timeout < _timeout);
                 }
