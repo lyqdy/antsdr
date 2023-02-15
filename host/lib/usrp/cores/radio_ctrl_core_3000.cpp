@@ -53,10 +53,10 @@ public:
         , _resp_queue_size(_resp_xport ? _resp_xport->get_num_recv_frames() : 3)
     {
         if (resp_xport) {
-            while (resp_xport->get_recv_buff(0.0)) {
-                UHD_LOGGER_INFO("PCIE")
-                <<"radio_ctrl_core_3000_impl in";
-            } // flush
+//            while (resp_xport->get_recv_buff(0.0)) {
+//                UHD_LOGGER_INFO("PCIE")
+//                <<"radio_ctrl_core_3000_impl in";
+//            } // flush
         }
         this->set_time(uhd::time_spec_t(0.0));
         this->set_tick_rate(1.0); // something possible but bogus

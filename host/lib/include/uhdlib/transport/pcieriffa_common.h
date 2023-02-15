@@ -42,8 +42,6 @@ namespace uhd {namespace transport{
         while(true){
             const ssize_t ret =
                     uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len,0,0,30));
-//            UHD_LOGGER_INFO("pcie")
-//            <<"send_pcieriffa_packet:"<<ret << "    :"<<len;
             if(ret == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
