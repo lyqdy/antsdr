@@ -588,7 +588,8 @@ b200_impl::b200_impl(
     }
     _async_task = uhd::msg_task::make(std::bind(
         &b200_impl::handle_async_task, this, _ctrl_transport, _async_task_data));
-
+    UHD_LOGGER_INFO("U220") <<
+                            "local _async_task pass";
     ////////////////////////////////////////////////////////////////////
     // Local control endpoint
     ////////////////////////////////////////////////////////////////////
@@ -599,7 +600,8 @@ b200_impl::b200_impl(
     _local_ctrl->hold_task(_async_task);
     _async_task_data->local_ctrl = _local_ctrl; // weak
     this->check_fpga_compat();
-
+    UHD_LOGGER_INFO("U220") <<
+    "local radio_ctrl_core_3000 pass";
     /* Initialize the GPIOs, set the default bandsels to the lower range. Note
      * that calling update_bandsel calls update_gpio_state(). */
     update_bandsel("RX", 800e6);
