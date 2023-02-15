@@ -288,7 +288,8 @@ private:
                 return ((hi << 32) | lo);
             }
         }
-
+        UHD_LOGGER_INFO("PCIE")
+                <<"wait_for_ack return 0";
         return 0;
     }
 
