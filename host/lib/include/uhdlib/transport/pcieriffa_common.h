@@ -27,7 +27,7 @@ namespace uhd {namespace transport{
 
         len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size,0));
         UHD_LOGGER_INFO("U220")
-        << "recv_pcieriffa_packet:" << len;
+        << "recv_pcieriffa_packet:" << len * 4;
         if(len == 0){
             throw uhd::io_error("PCIE closed");
         }
