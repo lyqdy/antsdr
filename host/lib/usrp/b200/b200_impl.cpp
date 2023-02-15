@@ -599,7 +599,7 @@ b200_impl::b200_impl(
         B200_LOCAL_CTRL_SID);
     _local_ctrl->hold_task(_async_task);
     _async_task_data->local_ctrl = _local_ctrl; // weak
-    this->check_fpga_compat();
+//    this->check_fpga_compat();
     UHD_LOGGER_INFO("U220") <<
     "local radio_ctrl_core_3000 pass";
     /* Initialize the GPIOs, set the default bandsels to the lower range. Note
@@ -610,6 +610,8 @@ b200_impl::b200_impl(
     ////////////////////////////////////////////////////////////////////
     // Create the GPSDO control
     ////////////////////////////////////////////////////////////////////
+    UHD_LOGGER_INFO("_gpsdo_capable") <<
+                            "local _gpsdo_capable pass";
     if (_gpsdo_capable) {
         UHD_LOGGER_INFO("B200") << "Detecting internal GPSDO.... " << std::flush;
         try {
