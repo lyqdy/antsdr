@@ -196,7 +196,11 @@ private:
 
             // get buffer from response endpoint - or die in timeout
             if (_resp_xport) {
+                UHD_LOGGER_INFO("PCIE")
+                        <<"wait_for_ack _resp_xport->get_recv_buff before";
                 buff = _resp_xport->get_recv_buff(_timeout);
+                UHD_LOGGER_INFO("PCIE")
+                        <<"wait_for_ack _resp_xport->get_recv_buff after";
                 try {
                     UHD_ASSERT_THROW(bool(buff));
                     UHD_ASSERT_THROW(buff->size() > 0);
