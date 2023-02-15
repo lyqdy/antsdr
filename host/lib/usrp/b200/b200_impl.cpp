@@ -713,8 +713,8 @@ b200_impl::b200_impl(
     default_buff_args.send_frame_size = 8192;
     default_buff_args.recv_frame_size = 8192;
     _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
-    while (_data_transport->get_recv_buff(0.0)) {
-    } // flush ctrl xport
+//    while (_data_transport->get_recv_buff(0.0)) {
+//    } // flush ctrl xport
     _demux = recv_packet_demuxer_3000::make(_data_transport);
 
     ////////////////////////////////////////////////////////////////////
