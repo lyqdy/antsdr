@@ -229,7 +229,7 @@ static device_addrs_t b200_find(const device_addr_t& hint)
         return b200_addrs;
     }
     device_addr_t pcie_device;
-    pcie_device["type"] = "ant";
+    pcie_device["type"] = "b200";
     pcie_device["product"] = "u220-mp";
     pcie_device["name"] = "ANTSDR";
     pcie_device["serial"] = std::to_string(info.device_id[0]);
