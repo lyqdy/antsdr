@@ -225,7 +225,6 @@ static device_addrs_t b200_find(const device_addr_t& hint)
     }
 
     fpga_info_list info;
-    std::cout << "fpga_list(&info):" <<fpga_list(&info)<<std::endl;
     if(fpga_list(&info) != 0){
         return b200_addrs;
     }
