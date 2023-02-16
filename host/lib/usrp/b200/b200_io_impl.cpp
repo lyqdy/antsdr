@@ -323,7 +323,6 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
 
     const uint32_t sid = uhd::wtohx(buff->cast<const uint32_t*>()[1]);
 
-    std::cout << "u220"<<" sid " << std::hex <<sid << std::endl;
     switch (sid) {
         // if the packet is a control response
         case B200_RESP0_MSG_SID:
