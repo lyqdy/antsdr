@@ -225,7 +225,7 @@ static device_addrs_t b200_find(const device_addr_t& hint)
     }
 
     fpga_info_list info;
-    if(fpga_list(&info) != 0){
+    if(fpga_list(&info) == 0){
         return b200_addrs;
     }
     device_addr_t pcie_device;
@@ -553,10 +553,10 @@ b200_impl::b200_impl(
     zero_copy_xport_params default_buff_args;
     default_buff_args.send_frame_size = 24;
     default_buff_args.recv_frame_size = 24;
-    default_buff_args.num_send_frames = 16;
-    default_buff_args.num_recv_frames = 16;
-    default_buff_args.send_buff_size = 40e9 / 8;
-    default_buff_args.recv_buff_size = 40e9 / 8;
+    default_buff_args.num_send_frames = 24;
+    default_buff_args.num_recv_frames = 24;
+    default_buff_args.send_buff_size = 80e9 / 8;
+    default_buff_args.recv_buff_size = 80e9 / 8;
 
     device_addr_t filtered_hints;
     pcie_riffa_zero_copy::buff_params ignored_params;
@@ -580,7 +580,7 @@ b200_impl::b200_impl(
     // Async task structure
     ////////////////////////////////////////////////////////////////////
     _async_task_data.reset(new AsyncTaskData());
-    _async_task_data->async_md.reset(new async_md_type(10000 /*messages deep*/));
+    _async_task_data->async_md.reset(new async_md_type(1000 /*messages deep*/));
     if (_gpsdo_capable) {
         _async_task_data->gpsdo_uart =
             b200_uart::make(_ctrl_transport, B200_TX_GPS_UART_SID);
@@ -648,8 +648,8 @@ b200_impl::b200_impl(
     _tree->create<std::string>(mb_path / "codename")
         .set((_product == B200MINI or _product == B205MINI) ? "Pixie" : "Sasquatch");
 
-    default_buff_args.send_frame_size = 8192*5;
-    default_buff_args.recv_frame_size = 8192*5;
+    default_buff_args.send_frame_size = 9216;
+    default_buff_args.recv_frame_size = 9216;
     _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
 //    while (_data_transport->get_recv_buff(0.0)) {
 //    } // flush ctrl xport
