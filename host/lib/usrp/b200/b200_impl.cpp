@@ -555,8 +555,8 @@ b200_impl::b200_impl(
     default_buff_args.recv_frame_size = 24;
     default_buff_args.num_send_frames = 16;
     default_buff_args.num_recv_frames = 16;
-    default_buff_args.send_buff_size = 10e6;
-    default_buff_args.recv_buff_size = 10e6;
+    default_buff_args.send_buff_size = 10e9 / 8;
+    default_buff_args.recv_buff_size = 10e9 / 8;
 
     device_addr_t filtered_hints;
     pcie_riffa_zero_copy::buff_params ignored_params;
@@ -648,8 +648,8 @@ b200_impl::b200_impl(
     _tree->create<std::string>(mb_path / "codename")
         .set((_product == B200MINI or _product == B205MINI) ? "Pixie" : "Sasquatch");
 
-    default_buff_args.send_frame_size = 8192;
-    default_buff_args.recv_frame_size = 8192;
+    default_buff_args.send_frame_size = 7972;
+    default_buff_args.recv_frame_size = 7972;
     _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
 //    while (_data_transport->get_recv_buff(0.0)) {
 //    } // flush ctrl xport
