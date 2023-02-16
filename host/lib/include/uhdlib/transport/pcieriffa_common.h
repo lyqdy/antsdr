@@ -40,8 +40,13 @@ namespace uhd {namespace transport{
     UHD_INLINE void send_pcieriffa_packet(fpga_t *fpga,int chan, void *mem, size_t len)
     {
         while(true){
+            std::cout << "len = " <<len <<std::endl;
+            for(size_t i = 0;i < 4;i++){
+                std::cout << std::hex << ((uint32_t*) mem)[i] << " ";
+            }
+            std::cout << std::endl;
             const ssize_t ret =
-                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len,0,0,30));
+                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len,0,0,1));
             if(ret == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
