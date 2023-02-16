@@ -36,8 +36,6 @@ public:
         const int32_t timeout_ms = static_cast<int32_t>(timeout * 1000);
 
         _len = recv_pcieriffa_packet(_fpga,_chan,_mem,_frame_size,timeout_ms);
-//        UHD_LOGGER_INFO("U220")
-//        << "get_new:recv_pcieriffa_packet "<<_len * 4;
         if(_len > 0){
             index++;
             return make(this,_mem,size_t(_len) * 4);

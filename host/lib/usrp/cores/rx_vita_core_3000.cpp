@@ -48,8 +48,6 @@ struct rx_vita_core_3000_impl : rx_vita_core_3000
 
     void configure_flow_control(const size_t window_size) override
     {
-        UHD_LOGGER_INFO("PCIE")
-                << "configure_flow_control";
         // The window needs to be disabled in the case where this object is
         // uncleanly destroyed and the FC window is left enabled
         _iface->poke32(REG_FC_ENABLE, 0);
@@ -74,15 +72,13 @@ struct rx_vita_core_3000_impl : rx_vita_core_3000
 
     void set_nsamps_per_packet(const size_t nsamps) override
     {
-        UHD_LOGGER_INFO("PCIE")
-        << "set_nsamps_per_packet";
+
         _iface->poke32(REG_FRAMER_MAXLEN, nsamps);
     }
 
     void issue_stream_command(const uhd::stream_cmd_t& stream_cmd) override
     {
-        UHD_LOGGER_INFO("PCIE")
-                << "issue_stream_command";
+
         if (not _is_setup) {
             // UHD_LOGGER_WARNING("CORES") << "rx vita core 3000 issue stream command -
             // not setup yet!";
