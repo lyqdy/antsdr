@@ -42,8 +42,7 @@ namespace uhd {namespace transport{
         while(true){
             const ssize_t ret =
                     uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len / 4,0,1,30));
-            std::cout << "ret:" <<ret << "  len:"<<len << " ssize_t(len)" << ssize_t(len)<<std::endl;
-            if(ret == ssize_t(len))
+            if((ret*4) == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
                 std::this_thread::sleep_for(std::chrono::microseconds(1));
@@ -54,7 +53,7 @@ namespace uhd {namespace transport{
                         str(boost::format("send error on pcieriffa: %s") % strerror(errno))
                 );
             }
-            UHD_ASSERT_THROW(ret == ssize_t(len));
+            UHD_ASSERT_THROW((ret*4) == ssize_t(len));
         }
     }
 }}
