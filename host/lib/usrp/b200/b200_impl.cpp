@@ -551,7 +551,7 @@ b200_impl::b200_impl(
 //    ctrl_xport_args["num_send_frames"] = "16";
 
     zero_copy_xport_params default_buff_args;
-    default_buff_args.send_frame_size = 48;
+    default_buff_args.send_frame_size = 24;
     default_buff_args.recv_frame_size = 24;
     default_buff_args.num_send_frames = 1;
     default_buff_args.num_recv_frames = 1;

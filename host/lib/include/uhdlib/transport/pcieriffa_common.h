@@ -42,7 +42,7 @@ namespace uhd {namespace transport{
         while(true){
             const ssize_t ret =
                     uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len / 4,0,1,30));
-            std::cout << "ret:" <<ret << "  len:"<<len << std::endl;
+            std::cout << "ret:" <<ret << "  len:"<<len << " ssize_t(len)" << ssize_t(len)<<std::endl;
             if(ret == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
