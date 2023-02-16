@@ -653,10 +653,13 @@ b200_impl::b200_impl(
 
     default_buff_args.send_frame_size = 9216;
     default_buff_args.recv_frame_size = 9216;
-    _data_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
-//    while (_data_transport->get_recv_buff(0.0)) {
-//    } // flush ctrl xport
-    _demux = recv_packet_demuxer_3000::make(_data_transport);
+    _data_tx_transport = pcie_riffa_zero_copy::make(_device,1,default_buff_args,ignored_params,filtered_hints);
+    while (_data_tx_transport->get_recv_buff(0.0)) {
+    } // flush ctrl xport
+    _data_rx_transport = pcie_riffa_zero_copy::make(_device,2,default_buff_args,ignored_params,filtered_hints);
+    while (_data_rx_transport->get_recv_buff(0.0)) {
+    } // flush ctrl xport
+    _demux = recv_packet_demuxer_3000::make(_data_rx_transport);
 
     ////////////////////////////////////////////////////////////////////
     // create time and clock control objects

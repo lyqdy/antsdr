@@ -152,6 +152,9 @@ private:
     std::shared_ptr<uhd::usrp::adf4001_ctrl> _adf4001_iface;
     uhd::gps_ctrl::sptr _gps;
 
+    uhd::transport::zero_copy_if::sptr _data_tx_transport;
+    uhd::transport::zero_copy_if::sptr _data_rx_transport;
+
     // transports
     uhd::transport::zero_copy_if::sptr _data_transport;
     uhd::transport::zero_copy_if::sptr _ctrl_transport;
@@ -326,6 +329,37 @@ private:
     //! Coercer, attached to the "rate/value" property on the tx dsps.
     double coerce_tx_samp_rate(tx_dsp_core_3000::sptr, size_t, const double);
     void update_tx_samp_rate(const size_t, const double);
+
+    struct tx_fc_cache_t
+    {
+        tx_fc_cache_t()
+                : stream_channel(0)
+                , device_channel(0)
+                , last_seq_out(0)
+                , last_seq_ack(0)
+                , seq_queue(1)
+        {
+        }
+        size_t stream_channel;
+        size_t device_channel;
+        size_t last_seq_out;
+        size_t last_seq_ack;
+        uhd::transport::bounded_buffer<size_t> seq_queue;
+        std::shared_ptr<async_md_type> async_queue;
+        std::shared_ptr<async_md_type> old_async_queue;
+    };
+
+    static size_t _get_tx_flow_control_window(size_t payload_size,size_t hw_buff_size);
+    typedef boost::function<double(void)> tick_rate_retriever_t;
+    static void _handle_tx_async_msgs(boost::shared_ptr<tx_fc_cache_t> fc_cache,
+                                      uhd::transport::zero_copy_if::sptr xport,
+                                      tick_rate_retriever_t get_tick_rate);
+    static uhd::transport::managed_send_buffer::sptr _get_tx_buff_with_flowctrl(
+            uhd::task::sptr /*holds ref*/,
+            boost::shared_ptr<tx_fc_cache_t> fc_cache,
+            uhd::transport::zero_copy_if::sptr xport,
+            size_t fc_pkt_window,
+            const double timeout);
 };
 
 #endif /* INCLUDED_B200_IMPL_HPP */
