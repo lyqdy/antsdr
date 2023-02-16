@@ -36,8 +36,6 @@ struct recv_packet_demuxer_3000 : std::enable_shared_from_this<recv_packet_demux
     transport::managed_recv_buffer::sptr get_recv_buff(
         const uint32_t sid, const double timeout)
     {
-        UHD_LOGGER_INFO("PCIE")
-                <<"get_recv_buff in";
         const auto exit_time = std::chrono::high_resolution_clock::now()
                                + std::chrono::microseconds(int64_t(timeout * 1e6));
         transport::managed_recv_buffer::sptr buff;

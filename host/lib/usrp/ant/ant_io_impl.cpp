@@ -323,7 +323,7 @@ boost::optional<uhd::msg_task::msg_type_t> ant_impl::handle_async_task(
 
     const uint32_t sid = uhd::wtohx(buff->cast<const uint32_t*>()[1]);
 
-    std::cout << "u220"<<" sid " << std::hex <<sid;
+//    std::cout << "u220"<<" sid " << std::hex <<sid <<std::endl;
     switch (sid) {
         // if the packet is a control response
         case ANT_RESP0_MSG_SID:
@@ -336,6 +336,10 @@ boost::optional<uhd::msg_task::msg_type_t> ant_impl::handle_async_task(
                 ctrl = data->radio_ctrl[1].lock();
             if (sid == ANT_LOCAL_RESP_SID)
                 ctrl = data->local_ctrl.lock();
+            for(int i=0;i<buff->size();i++){
+                std::cout << std::hex << buff->cast<uint32_t*>()[i] << " ";
+            }
+            std::cout << std::endl;
             if (ctrl) {
                 ctrl->push_response(buff->cast<const uint32_t*>());
             } else {
