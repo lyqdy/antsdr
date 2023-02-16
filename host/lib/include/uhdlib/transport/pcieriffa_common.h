@@ -25,7 +25,7 @@ namespace uhd {namespace transport{
     {
         ssize_t len;
 
-        len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size,timeout_ms));
+        len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size / 4,timeout_ms));
 
         if(len == 0){
             return 0;
@@ -40,14 +40,9 @@ namespace uhd {namespace transport{
     UHD_INLINE void send_pcieriffa_packet(fpga_t *fpga,int chan, void *mem, size_t len)
     {
         while(true){
-            std::cout << "len = " <<len <<std::endl;
-            for(size_t i = 0;i < 4;i++){
-                std::cout << std::hex << ((uint32_t*) mem)[i] << " ";
-            }
-            std::cout << std::endl;
             const ssize_t ret =
-                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len,0,0,1));
-            if(ret == ssize_t(len))
+                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len / 4,0,0,1));
+            if(ret * 4 == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
                 std::this_thread::sleep_for(std::chrono::microseconds(1));
@@ -58,7 +53,7 @@ namespace uhd {namespace transport{
                         str(boost::format("send error on pcieriffa: %s") % strerror(errno))
                 );
             }
-            UHD_ASSERT_THROW(ret == ssize_t(len));
+            UHD_ASSERT_THROW(ret * 4 == ssize_t(len));
         }
     }
 }}

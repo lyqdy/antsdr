@@ -35,7 +35,7 @@ public:
             return sptr();
         const int32_t timeout_ms = static_cast<int32_t>(timeout * 1000);
 
-        _len = recv_pcieriffa_packet(_fpga,_chan,_mem,_frame_size / 4,timeout_ms);
+        _len = recv_pcieriffa_packet(_fpga,_chan,_mem,_frame_size,timeout_ms);
 //        UHD_LOGGER_INFO("U220")
 //        << "get_new:recv_pcieriffa_packet "<<_len * 4;
         if(_len > 0){
@@ -67,7 +67,7 @@ public:
 
     void release(void) override
     {
-        send_pcieriffa_packet(_fpga,_chan,_mem,_frame_size / 4);
+        send_pcieriffa_packet(_fpga,_chan,_mem,_frame_size);
         _claimer.release();
     }
 
