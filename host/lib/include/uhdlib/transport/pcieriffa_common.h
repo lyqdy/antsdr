@@ -24,7 +24,8 @@ namespace uhd {namespace transport{
             fpga_t *fpga, int chan,void *mem, size_t frame_size, int32_t timeout_ms)
     {
         ssize_t len;
-
+        if(timeout_ms == 0)
+            timeout_ms = 10;
         len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size / 4,timeout_ms));
 
         if(len == 0){

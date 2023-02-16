@@ -74,9 +74,7 @@ struct recv_packet_demuxer_3000 : std::enable_shared_from_this<recv_packet_demux
             }
         }
         {
-            UHD_LOGGER_INFO("PCIE")
-            << "time:"<<timeout;
-            buff = _xport->get_recv_buff(0.1);
+            buff = _xport->get_recv_buff(timeout);
             if (buff) {
                 const uint32_t new_sid = uhd::wtohx(buff->cast<const uint32_t*>()[1]);
                 if (new_sid != sid) {
