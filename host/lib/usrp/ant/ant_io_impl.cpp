@@ -336,7 +336,7 @@ boost::optional<uhd::msg_task::msg_type_t> ant_impl::handle_async_task(
                 ctrl = data->radio_ctrl[1].lock();
             if (sid == ANT_LOCAL_RESP_SID)
                 ctrl = data->local_ctrl.lock();
-            for(int i=0;i<buff->size() / 8;i++){
+            for(int i=0;i<buff->size() / 4;i++){
                 std::cout << std::hex << buff->cast<uint32_t*>()[i] << " ";
             }
             std::cout << std::endl;
