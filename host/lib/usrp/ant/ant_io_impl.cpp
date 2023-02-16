@@ -322,6 +322,8 @@ boost::optional<uhd::msg_task::msg_type_t> ant_impl::handle_async_task(
         return boost::none;
 
     const uint32_t sid = uhd::wtohx(buff->cast<const uint32_t*>()[1]);
+
+    std::cout << "u220"<<" sid " << std::hex <<sid;
     switch (sid) {
         // if the packet is a control response
         case ANT_RESP0_MSG_SID:
