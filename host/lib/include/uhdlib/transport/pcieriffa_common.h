@@ -26,7 +26,7 @@ namespace uhd {namespace transport{
         ssize_t len;
         if(timeout_ms == 0)
             timeout_ms = 10;
-        len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size / 4,30));
+        len = uhd::narrow_cast<ssize_t>(fpga_recv(fpga,chan,(char*)mem,frame_size / 4,25000));
 
         if(len == 0){
             return 0;
@@ -42,7 +42,7 @@ namespace uhd {namespace transport{
     {
         while(true){
             const ssize_t ret =
-                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len / 4,0,1,30));
+                    uhd::narrow_cast<ssize_t>(fpga_send(fpga,chan,mem,len / 4,0,1,25000));
             if((ret*4) == ssize_t(len))
                 break;
             if(ret == -1 and errno == ENOBUFS){
