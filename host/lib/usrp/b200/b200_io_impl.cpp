@@ -338,6 +338,8 @@ boost::optional<uhd::msg_task::msg_type_t> b200_impl::handle_async_task(
             for(int i=0;i<buff->size();i++){
                 std::cout << std::hex << buff->cast<uint32_t*>()[i] << " ";
             }
+            std::cout << std::endl;
+
             if (ctrl) {
                 ctrl->push_response(buff->cast<const uint32_t*>());
             } else {
