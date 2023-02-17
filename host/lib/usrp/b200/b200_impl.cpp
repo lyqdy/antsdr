@@ -558,8 +558,8 @@ b200_impl::b200_impl(
     default_buff_args.recv_frame_size = 24;
     default_buff_args.num_send_frames = 24;
     default_buff_args.num_recv_frames = 24;
-    default_buff_args.send_buff_size = 80e9 / 8;
-    default_buff_args.recv_buff_size = 80e9 / 8;
+    default_buff_args.send_buff_size = 8e9 / 8;
+    default_buff_args.recv_buff_size = 8e9 / 8;
 
     device_addr_t filtered_hints;
     pcie_riffa_zero_copy::buff_params ignored_params;
