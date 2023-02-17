@@ -590,7 +590,7 @@ tx_streamer::sptr b200_impl::get_tx_stream(const uhd::stream_args_t& args_)
         perif.duc->setup(args);
 
         // flow control setup
-        size_t fc_window = _get_tx_flow_control_window(bpp, 8e9 / 8);
+        size_t fc_window = _get_tx_flow_control_window(bpp, 8e6 / 8);
         // In packets
         perif.deframer->configure_flow_control(0/* cycs off */, 10);
         boost::shared_ptr<tx_fc_cache_t> fc_cache(new tx_fc_cache_t());
